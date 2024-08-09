@@ -1,1 +1,2 @@
-print("fuck me")
+name = "y"
+print(f'Task "{name}" succesfully created!')
