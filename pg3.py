@@ -1,3 +1,4 @@
+from signal import signal
 import json
 from os import path
 from os import remove
@@ -8,8 +9,17 @@ due = []
 overdue = []
 sleepers = []
 finished_today = []
+pulled = None
+Pulled_list = []
 displayed = None
 displayed_list = []
+
+
+def exit_without_saving():
+def exit():
+    """ Properly saves all data, closes and exits the program. """
+    #TO-DO
+
 
 
 def __create_file(frequency):
@@ -32,7 +42,7 @@ def __pull_file(frequency):
     return temp
 
 
-def __push_file(frequency, contents):
+def __push_changes(frequency, contents):
     with open(f'{frequency}.txt', "w", encoding="utf-8") as f:
         json.dump(contents, f)
 
@@ -60,7 +70,7 @@ def delete_task(task_index):
     freq = task["frequency"]
     temp = __pull_file(freq)
     temp.remove(task)
-    __push_file(freq, temp)
+    __push_changes(freq, temp)
 
     displayed_list.pop(task_index - 1)
     __display_list(displayed_list)
@@ -85,7 +95,7 @@ def sleep_task(task_index, duration=0, until_date=today):
     temp_task = temp[temp.index(task)]
     temp_task["status"] = "asleep"
     temp_task["until"] = until_date
-    __push_file(freq, temp)
+    __push_changes(freq, temp)
 
 
 # displayed_list.pop(task_index - 1)

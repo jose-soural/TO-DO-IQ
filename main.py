@@ -1,20 +1,8 @@
-import json
-from os import path
-from os import remove
-from datetime import date, timedelta
-import heapq
-today = date.today()
-due = []
-overdue = []
-sleepers = []
-finished_today = []
-displayed_list = []
+test1 = [{"name": "test_task1", "description": "", "status": "unfinished"}, {"name": "test_task2", "description": "", "status": "unfinished"}]
+test2 = [i for i in test1 if "1" in i["name"]]
 
+print("test2:\n", test2)
+test2[0]["name"] = "success!"
+print("test1:\n", test1)
 
-def __to_date(days):
-    delta = timedelta(days)
-    return today + delta
-
-x = __to_date(-1089)
-if x < today:
-    print("Oh, no no")
+# Create, delete, set asleep, view details, rename, change frequency, change description
