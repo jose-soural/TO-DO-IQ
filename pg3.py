@@ -37,7 +37,6 @@ def __pull_file(frequency):
         with open(f'{frequency}.txt', encoding="utf-8") as f:
             temp = json.load(f)
     else:
-        __create_file(frequency)
         temp = []
     return temp
 

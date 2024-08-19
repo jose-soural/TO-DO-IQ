@@ -22,3 +22,7 @@ ale reálně jak velký ten TO-DO list bude průměrný uživatel mít? Mnohem h
 do původního stavu před otevřením (a nemusím tuhle eventualitu nikterak řešit...)
 - jediné mínus: Nelze to tak dobře portnout na přístroje s menším RAM, nejvíc mě zde mrzí mobily -- ty by se hodily mít, páč TO-DO na
 mobilu je o dost užitečnější než na notebooku...
+
+
+# TO-DO:
+- catch the user closing the programme via keyboard etc. and automatically initiate proper exit sequence (= exit function)
