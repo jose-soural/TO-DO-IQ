@@ -15,7 +15,7 @@ changed = {}
 pulled = None
 pulled_list = [{},{}]
 displayed = None
-displayed_list = [{},{}]
+last_displayed = [{}, {}]
 
 
 def __create_file(frequency):       #might not be necessary in the end lol

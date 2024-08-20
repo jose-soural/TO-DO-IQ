@@ -12,7 +12,7 @@ finished_today = []
 pulled = None
 Pulled_list = []
 displayed = None
-displayed_list = []
+last_displayed = []
 
 
 def exit_without_saving():
@@ -65,14 +65,14 @@ def create_task(name, frequency="once", description="", status="unfinished"):
 
 
 def delete_task(task_index):
-    task = displayed_list[task_index - 1]
+    task = last_displayed[task_index - 1]
     freq = task["frequency"]
     temp = __pull_file(freq)
     temp.remove(task)
     __push_changes(freq, temp)
 
-    displayed_list.pop(task_index - 1)
-    __display_list(displayed_list)
+    last_displayed.pop(task_index - 1)
+    __display_list(last_displayed)
 
 
 def __to_date(days):
@@ -88,7 +88,7 @@ def sleep_task(task_index, duration=0, until_date=today):
             return
         else:
             until_date = __to_date(duration)
-    task = displayed_list[task_index - 1]
+    task = last_displayed[task_index - 1]
     freq = task["frequency"]
     temp = __pull_file(freq)
     temp_task = temp[temp.index(task)]
@@ -97,5 +97,5 @@ def sleep_task(task_index, duration=0, until_date=today):
     __push_changes(freq, temp)
 
 
-# displayed_list.pop(task_index - 1)
-# __display_list(displayed_list)
+# last_displayed.pop(task_index - 1)
+# __display_list(last_displayed)

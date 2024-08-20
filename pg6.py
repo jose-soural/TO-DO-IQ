@@ -3,6 +3,14 @@ from os import path
 from os import remove
 from datetime import date, datetime, timedelta
 
+class Task_node:
+    """A node of a doubly linked list"""
+
+    def __init__(self, task, prev=None, next=None):
+        self.task = task
+        self.prev = prev
+        self.next = next
+
 today = date.today()
 now = datetime.now()
 config = {}
