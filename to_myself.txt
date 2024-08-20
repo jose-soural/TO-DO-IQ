@@ -26,3 +26,9 @@ mobilu je o dost užitečnější než na notebooku...
 
 # TO-DO:
 - catch the user closing the programme via keyboard etc. and automatically initiate proper exit sequence (= exit function)
+
+
+# asleep function -- reálně budu prezentovat jako "make it so that it is due on the date so-so. NOte: this overrides it's frequency."
+
+# TO-DO:
+- musím vlastně u všech (uživatelských) funkcí vychytat případy inputu, kdy je uživatel příliš blbej a zadá neplatný input.
