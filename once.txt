@@ -1,1 +1,0 @@
-[{"name": "test_task", "description": "", "status": "unfinished"}, {"name": "test_task", "description": "", "status": "unfinished", "id": 0}]

@@ -1,34 +1,8 @@
-Actually, a better thing to do, than to always log any changes to the files themselves is to wait until the user
-has done all the changes to the currently viewed list and wants to move on, and THEN commit the changes, all at once.
-(with the exception of if they're viewing a list not based on frequency, as in sleepers or due:today etc.)
-
-Basically:
-- THe user pulls the file "monthly" for example.
-- THe user deletes some stuff, reorganizes some stuff, renames some stuff etc.
-- then the user wants to pull up a DIFFERENT file =>
-=> The program checks that the file we're "closing" (it's long since closed) is not a special case, but a frequency file =>
-=> it first commits the changes to that monthly file and THEN pulls the new file the user wanted
-
-This way, the amount of times we open a file, search for something in it, close it again -- and mostly importantly, the amount of times we're
-reading or writing! --, reduces SIGNIFICANTLY. And that MATTERS,
-cause we're dealing with files here. Major speed (and RAm) improvement :).
-
-
-##################################
-
-AAAACtually actually -- zas to moc hrotím. Reálně prostě mít vícero souborů načtených v paměti je asi okk... Sice to trochu víc zatěžuje RAM,
-ale reálně jak velký ten TO-DO list bude průměrný uživatel mít? Mnohem horší je pak ten čas, který strávím přepisováním souborů...
-+ OBŘÍ BONUS: Pokud budu vždycky commitovat až při ukončování programu (nebo při commandu), tak lze kdykoli aplikaci ukončit a revertovat jí
-do původního stavu před otevřením (a nemusím tuhle eventualitu nikterak řešit...)
-- jediné mínus: Nelze to tak dobře portnout na přístroje s menším RAM, nejvíc mě zde mrzí mobily -- ty by se hodily mít, páč TO-DO na
-mobilu je o dost užitečnější než na notebooku...
-
-
 # TO-DO:
 - catch the user closing the programme via keyboard etc. and automatically initiate proper exit sequence (= exit function)
 
-
-# asleep function -- reálně budu prezentovat jako "make it so that it is due on the date so-so. NOte: this overrides it's frequency."
+# asleep function -- reálně budu prezentovat jako "make it so that it is due on the date so-so. NOte: this takes
+# precedence over it's frequency."
 
 # TO-DO:
 - musím vlastně u všech (uživatelských) funkcí vychytat případy inputu, kdy je uživatel příliš blbej a zadá neplatný input.
