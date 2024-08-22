@@ -11,9 +11,9 @@ class TaskNode:
 class DLTL:
     """A doubly linked task list"""
 
-    def __init__(self, head=None, tail=None):
-        self.head = head
-        self.tail = tail
+    def __init__(self):
+        self.head = None
+        self.tail = None
         self.glossary = {}
         self.size = 0
 
@@ -59,7 +59,7 @@ class DLTL:
             return -1
         return node.task
 
-    def _fetch_node_at_position(self, position):
+    def fetch_node_at_position(self, position):
         """Fetch the node at the given position in the DLTL."""
         if position < 1 or position > (size := self.size):
             print("Error: Invalid position.")
@@ -76,7 +76,7 @@ class DLTL:
 
     def remove_position(self, position: int) -> None:
         """Remove a task at a specific position."""
-        node = self._fetch_node_at_position(position)
+        node = self.fetch_node_at_position(position)
         self._remove_node(node)
 
     def move_task(self, name, new_position):
@@ -100,7 +100,7 @@ class DLTL:
             if self.size == 0:
                 self.tail = node
         else:
-            predecessor = self._fetch_node_at_position(new_position - 1)
+            predecessor = self.fetch_node_at_position(new_position - 1)
             node.next = predecessor.next
             node.prev = predecessor
             predecessor.next = node
@@ -110,8 +110,12 @@ class DLTL:
                 self.tail = node
         self.size += 1
 
-    def display_tasks(self):
+    def display_tasks(self, initial_index=1):
         current = self.head
         for i in range(self.size):
-            print(f'{i+1})   {current.name}')
+            print(f'{initial_index+i})   {current.name}')
             current = current.next
+
+class DLTLSquared(DLTL):
+    """A doubly linked list of doubly linked task lists"""
+
