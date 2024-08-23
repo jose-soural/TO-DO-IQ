@@ -3,7 +3,6 @@ class TaskNode:
 
     def __init__(self, task):
         self.task = task
-        self.name = task["name"]
         self.prev = None
         self.next = None
 
@@ -41,7 +40,7 @@ class DLTL:
         else:  # Node is tail
             self.tail = node.prev
 
-        del self.glossary[node.name]
+        del self.glossary[node.task["name"]]
         self.size -= 1
 
     def remove_task(self, name):
@@ -115,7 +114,7 @@ class DLTL:
     def display_tasks(self, initial_index=1):
         current = self.head
         for i in range(self.size):
-            print(f'{initial_index+i})   {current.name}')
+            print(f'{initial_index+i})   {current.task["name"]}')
             current = current.next
         return initial_index
 
@@ -123,7 +122,7 @@ class DLTL:
         current = self.head
         for _ in range(self.size):
             if current.task["status"] == status:
-                print(f'{initial_index})   {current.name}')
+                print(f'{initial_index})   {current.task["name"]}')
                 initial_index += 1
             current = current.next
         return initial_index
