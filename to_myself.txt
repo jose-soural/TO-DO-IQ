@@ -7,3 +7,20 @@
 # TO-DO:
 - musím vlastně u všech (uživatelských) funkcí vychytat případy inputu, kdy je uživatel příliš blbej a zadá neplatný input.
 - dates aren't strings -- currently a lot of my functions don't work because of that...
+
+- whoops! forgot the names were in 2 places!
+
+
+"""
+Optimization Considerations
+
+Redundant Operations: In several methods (e.g., set_asleep, change_frequency), tasks are fetched multiple times. Consider fetching the task once and then performing the necessary operations on it.
+special Collection: If a task's frequency changes, the task is removed from all special collections and re-added. This is potentially inefficient, especially for large datasets. Consider optimizing this process to avoid unnecessary operations.
+"""
+
+The Asleep category needs special treatment. (In most functions)
+
+Stuff interacting with last_displayed needs an update. (In the end I'm gonna have to handle it differently)
+
+
+A slight error in my code: sometimes I treat the special list as a list of strings, sometimes as its contents. Whoops. Have to fix that.

@@ -15,7 +15,10 @@ finished_today = {"frequencies": {}, "glossary": {}, "ordering": []}
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
 week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-specific = {}
+seasons = {"winter", "spring", "summer", "fall"}
+
+counting = {}
+dates = {}
 special = {due, overdue, asleep, finished_today}
 ordering_key = {"once": 1, "daily": 2}      # specific dates should go in the front I guess
 
@@ -32,7 +35,8 @@ def _pull_file(frequency):
             with open(f'{frequency}.txt', encoding="utf-8") as f:
                 temp = json.load(f)
         else:
-            temp = dltl.DLTL
+            temp = dltl.DLTL()
+        in_memory[f'{frequency}'] = temp            # Watch out that you don't accidentally create an empty file!
     return temp
 
 
@@ -40,7 +44,7 @@ def _delete_file(frequency):
     if path.exists(f'{frequency}.txt'):
         remove(f'{frequency}.txt')
     for collection in special:
-        task_list = collection["frequencies"].pop([f'{frequency}'], None)
+        task_list = collection["frequencies"].pop(f'{frequency}', None)
         if task_list:
             current = task_list.head
             for _ in range(task_list.size):
@@ -72,7 +76,7 @@ def save_changes():
 
 def _add_to_special(task, collection):
     if (freq := task["frequency"]) not in collection["frequencies"]:
-        collection["frequencies"][freq] = dltl.DLTL
+        collection["frequencies"][freq] = dltl.DLTL()
 
         collection["ordering"].append(freq)
         i = 0
@@ -85,13 +89,14 @@ def _add_to_special(task, collection):
     collection["glossary"][task["name"]] = task
 
 
-def _remove_from_special(task, collection):
-    del collection["glossary"][task["name"]]
-    temp = collection["frequencies"][task["frequency"]]
+def _remove_from_special(task, collection):     # This could cause a meltdown
+    collection["glossary"].pop(task["name"], None)
+    freq = task["frequency"]
+    temp = collection["frequencies"][freq]
     temp.remove_task(task["name"])
     if temp.size == 0:
-        del collection["frequencies"][task["frequency"]]
-        collection["ordering"].remove(task["frequency"])
+        del collection["frequencies"][freq]
+        collection["ordering"].remove(freq)
 
 
 def _viability(frequency):
@@ -100,7 +105,7 @@ def _viability(frequency):
     elif frequency in week:
         if frequency == now.strftime('%A'):
             return True
-    elif frequency in specific:
+    elif frequency in dates:
         if frequency == today:
             return True
             # like many other things where I am working with "dates" but actually strings, this won't work properly
@@ -112,7 +117,7 @@ def _to_date(days):
     return today + delta
 
 
-def create_task(name, frequency="once", description="", status="unfinished"):       # Maybe special treatment for "once" tasks?
+def create_task(name, frequency="once", task_description="", status="unfinished"):       # Maybe special treatment for "once" tasks?
     frequency = frequency.casefold()
     if status == "finished" and frequency == "once":
         print(f'Error: Cannot add a "once" task that is already finished. Task "{name}" was NOT created.')
@@ -121,7 +126,7 @@ def create_task(name, frequency="once", description="", status="unfinished"):   
     if name in temp.glossary:
         print(f'Error: Task with name {name} and frequency {frequency} already exists. Task was NOT created.')
         return
-    new_task = {"name": name, "frequency": frequency, "description": description, "status": status}
+    new_task = {"name": name, "frequency": frequency, "description": task_description, "status": status}
     if status == "unfinished":
         if _viability(frequency):
             _add_to_special(new_task, due)
@@ -149,14 +154,14 @@ def _target_task_in_special(digit_input):
     return temp.fetch_node_at_position(digit_input).task
 
 
-def _target_task(user_input):
+def _target_task(user_input):       # Add properly: Block the user from doing shit with "(un)finished" selections (sorry, this is not allowed. View the main list)
     if user_input.isdigit():
         if last_displayed in special:
             return _target_task_in_special(user_input)
         else:
             return last_displayed.fetch_node_at_position(user_input).task
     else:
-        return last_displayed["glossary"][user_input]
+        return last_displayed["glossary"][user_input] if last_displayed in special else last_displayed.glossary[user_input]
 
 
 def delete_task(task):
@@ -205,7 +210,16 @@ def change_description(task, new_description):
 
     for collection in special:
         if task["name"] in collection["glossary"]:
-            collection["glossary"][task["name"]]["description"] = new_description
+            collection["glossary"][task["name"]].task["description"] = new_description
+
+
+def description(task):
+    """Returns the description of a task, if it has one"""
+    descript = _target_task(task)["description"]
+    if descript == "":
+        print("Requested task has no description.")
+        return
+    print(descript)
 
 
 def set_asleep(task):
@@ -228,3 +242,200 @@ def set_asleep(task):
         if task["name"] in collection["glossary"]:
             _remove_from_special(task, collection)
     _add_to_special(task, asleep)
+
+
+def renew(task):
+    """Sets a task's status to 'due' and ads it to the agenda"""
+    task = _target_task(task)
+    frequency = task["frequency"]
+
+    temp = _pull_file(frequency)
+    task = temp.fetch_task(task["name"])
+    task["status"] = "due"
+    in_memory[frequency] = temp
+    changed[frequency] = True
+
+    for collection in special:
+        if task["name"] in collection["glossary"]:
+            _remove_from_special(task, collection)
+    _add_to_special(task, due)
+
+
+def finish(task):
+    """Sets a task's status to 'finished', marking its completion and taking it off the agenda"""
+    task = _target_task(task)
+    frequency = task["frequency"]
+
+    temp = _pull_file(frequency)
+    task = temp.fetch_task(task["name"])
+    task["status"] = "finished"
+    in_memory[frequency] = temp
+    changed[frequency] = True
+
+    for collection in special:
+        if task["name"] in collection["glossary"]:
+            _remove_from_special(task, collection)
+    _add_to_special(task, finished_today)
+
+
+def mark_as_overdue(task):
+    """Sets a task's status to 'overdue', marking its completion as high priority"""
+    task = _target_task(task)
+    frequency = task["frequency"]
+
+    temp = _pull_file(frequency)
+    task = temp.fetch_task(task["name"])
+    task["status"] = "overdue"
+    in_memory[frequency] = temp
+    changed[frequency] = True
+
+    for collection in special:
+        if task["name"] in collection["glossary"]:
+            _remove_from_special(task, collection)
+    _add_to_special(task, overdue)
+
+
+def change_name(task, new_name):
+    task = _target_task(task)
+    frequency = task["frequency"]
+    old_name = task["name"]
+
+    temp = _pull_file(frequency)
+    if new_name in temp.glossary:
+        print(f'Error: Task with name {new_name} and frequency {frequency} already exists. Name change was aborted.')
+        return -1
+    node = temp.fetch_task(old_name)
+    node.name = new_name
+    node.task["name"] = new_name
+    temp.glossary[new_name] = temp.glossary[old_name]
+    del temp.glossary[old_name]
+    in_memory[frequency] = temp
+    changed[frequency] = True
+
+    for collection in special:
+        if old_name in collection["glossary"]:
+            collection["glossary"][new_name] = collection["glossary"][old_name]
+            del collection["glossary"][old_name]
+            collection["glossary"][new_name].task["name"] = new_name
+            collection["glossary"][new_name].name = new_name
+
+
+def _display_special(collection, initial_index=1):
+    if len(collection["ordering"]) == 0:
+        raise ValueError("The list you have tried to display is empty!")             # Need to add proper handling of this!
+    for frequency in collection["ordering"]:
+        print(frequency)
+        print()
+        collection["frequencies"][frequency].display_tasks()
+        initial_index += collection["frequencies"][frequency].size
+    global last_displayed
+    last_displayed = collection
+    return initial_index
+
+
+def _display_subspecial(collection, subspecial):
+    if subspecial not in collection["frequencies"]:
+        print("The list you have tried to display is empty!")
+        return
+    collection["frequencies"][subspecial].display_tasks()
+    global last_displayed
+    last_displayed = collection["frequencies"][subspecial]
+
+
+def _display_finished(frequency, status):
+    temp = _pull_file(frequency)
+    in_memory[frequency] = temp
+    flag = temp.display_tasks_conditional(status)
+    if flag == 1:   # No tasks were displayed, includes empty list case
+        print("The list you have tried to display is empty!")
+        return
+    global last_displayed
+    last_displayed = status
+
+
+def display_tasks(category, status="all"):
+    if category in special:
+        _display_special(category)
+    else:
+        if status == "all":
+            category.display_tasks()
+            global last_displayed
+            last_displayed = category
+        elif status == "due":
+            _display_subspecial(due, category)
+        elif status == "overdue":
+            _display_subspecial(overdue, category)
+        elif status == "asleep":
+            _display_subspecial(asleep, category)
+        elif status == "finished_today":
+            _display_subspecial(finished_today, category)
+        elif status == "finished":
+            _display_finished(category, "finished")
+        elif status == "unfinished":
+            _display_finished(category, "unfinished")
+
+
+def to_do():
+    """Displays all tasks on the TO_DO list today"""
+
+    i = 1
+    first_failed = False
+    try:
+        i = _display_special(overdue)
+    except ValueError:
+        first_failed = True
+    try:
+        _display_special(due, i)
+    except ValueError as e:
+        if first_failed:
+            print(f'Error: {e}')
+
+
+def due():
+    """Displays all due tasks except tasks that are overdue"""
+    _display_special(due)
+
+
+def overdue():
+    """Displays all overdue tasks"""
+    _display_special(overdue)
+
+
+def asleep():
+    """Displays all tasks which are asleep"""
+    _display_special(asleep)
+
+
+def finished_today():
+    """Displays all tasks which were finished today"""
+    _display_special(finished_today)
+
+
+def display_all():
+    """Displays all tasks currently logged by the program. Please note that this may be demanding on your device."""
+    i = 1
+    for frequency in ordinary:
+        print(frequency)
+        print()
+        i = _pull_file(frequency).display_tasks(i)
+    for frequency in week:
+        print(frequency)
+        print()
+        i = _pull_file(frequency).display_tasks(i)
+    for frequency in seasons:
+        print(frequency)
+        print()
+        i = _pull_file(frequency).display_tasks(i)
+    for frequency in counting:
+        print(frequency)
+        print()
+        i = _pull_file(frequency).display_tasks(i)
+    for frequency in dates:
+        print(frequency)
+        print()
+        i = _pull_file(frequency).display_tasks(i)
+
+    if i == 1:
+        print("You have no tasks. Consider making some!")
+    else:
+        print("And that is all.")

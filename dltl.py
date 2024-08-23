@@ -77,6 +77,8 @@ class DLTL:
     def remove_position(self, position: int) -> None:
         """Remove a task at a specific position."""
         node = self.fetch_node_at_position(position)
+        if node == -1:
+            return -1
         self._remove_node(node)
 
     def move_task(self, name, new_position):
@@ -96,9 +98,9 @@ class DLTL:
             node.prev = None
             if self.head:
                 self.head.prev = node
-            self.head = node
-            if self.size == 0:
+            else:
                 self.tail = node
+            self.head = node
         else:
             predecessor = self.fetch_node_at_position(new_position - 1)
             node.next = predecessor.next
@@ -115,7 +117,17 @@ class DLTL:
         for i in range(self.size):
             print(f'{initial_index+i})   {current.name}')
             current = current.next
+        return initial_index
+
+    def display_tasks_conditional(self, status, initial_index=1):
+        current = self.head
+        for _ in range(self.size):
+            if current.task["status"] == status:
+                print(f'{initial_index})   {current.name}')
+                initial_index += 1
+            current = current.next
+        return initial_index
+
 
 class DLTLSquared(DLTL):
     """A doubly linked list of doubly linked task lists"""
-
