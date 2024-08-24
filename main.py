@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 beginning = date(2024,1,1)
 dates = []
 for shift in range(366):
@@ -7,4 +7,6 @@ for shift in range(366):
 
 x = ["once", "daily", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
 
-print(str(date.today()))
+print((date.today()-beginning).days.is_integer())
+print(timedelta(15).days)
+print(str(timedelta(15)))

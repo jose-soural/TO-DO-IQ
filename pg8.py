@@ -15,7 +15,7 @@ config = {"last_refresh": date(2024, 8, 20),
 due = {"frequencies": {}, "glossary": {}, "ordering": []}
 overdue = {"frequencies": {}, "glossary": {}, "ordering": []}
 finished_today = {"frequencies": {}, "glossary": {}, "ordering": []}
-asleep = dltl.DLTL()
+asleep = dltl.SleeperDLTL()
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
 week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -32,15 +32,15 @@ last_displayed = None
 
 def _pull_file(frequency):
     """Not meant for the end user. Pulls the desired file into memory (if it exists), or returns an empty DLTL."""
-    if f'{frequency}' in in_memory:
-        temp = in_memory[f'{frequency}']
+    if frequency in in_memory:
+        temp = in_memory[frequency]
     else:
         if path.exists(f'{frequency}.txt'):
             with open(f'{frequency}.txt', encoding="utf-8") as f:
                 temp = json.load(f)
         else:
             temp = dltl.DLTL()
-        in_memory[f'{frequency}'] = temp
+        in_memory[frequency] = temp
     return temp
 
 
