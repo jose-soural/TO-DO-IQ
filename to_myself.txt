@@ -24,3 +24,6 @@ Stuff interacting with last_displayed needs an update. (In the end I'm gonna hav
 
 
 A slight error in my code: sometimes I treat the special list as a list of strings, sometimes as its contents. Whoops. Have to fix that.
+
+
+# Ensure all references are removes, so it gets picked up by the garbage collector

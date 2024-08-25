@@ -49,11 +49,15 @@ def _delete_file(frequency):
     if path.exists(f'{frequency}.txt'):
         remove(f'{frequency}.txt')
     for collection in special:
-        task_list = collection["frequencies"].pop(f'{frequency}', None)
-        if task_list:
+        task_list = collection["frequencies"].pop(frequency, None)
+        if task_list is not None:
             current = task_list.head
             for _ in range(task_list.size):
                 del collection["glossary"][current.name]
+                #Deletes the node itself
+                next = current.next
+                del current
+                current = next
                 current = current.next
     
     current = sleepers.head
@@ -63,9 +67,9 @@ def _delete_file(frequency):
             del asleep["glossary"][current.task["name"]]        # Actually, I can do this through dltl methods!
             _remove_node(current)
     sleepers
-    task_list = collection["frequencies"].pop(f'{frequency}', None)
+    task_list = collection["frequencies"].pop(frequency, None)
 
-    changed.pop(f'{frequency}', None)
+    changed.pop(frequency, None)
 
 
 def _push_file(frequency, contents):  # might rewrite later to automatically take contents from in_memory,
@@ -76,14 +80,14 @@ def _push_file(frequency, contents):  # might rewrite later to automatically tak
     else:
         with open(f'{frequency}.txt', "w", encoding="utf-8") as f:
             json.dump(contents, f)
-    changed.pop(f'{frequency}', None)
+    changed.pop(frequency, None)
 
 
 def save_changes():
     """Saves all changes and progress made to all tasks and configurations."""
-    if changed.pop("special", False):
+    if changed.pop("special", None) is None:
         _push_file("special", special)
-    if changed.pop("config", False):
+    if changed.pop("config", None) is None:
         _push_file("config", config)
     for frequency in list(changed.keys()):
         _push_file(frequency, in_memory[frequency])
@@ -113,7 +117,7 @@ def _remove_from_special(task, collection):     # This could cause a meltdown
     collection["glossary"].pop(task["name"], None)
     freq = task["frequency"]
     temp = collection["frequencies"][freq]
-    temp.remove_task(task["name"])
+    temp.detach_task(task["name"])
     if temp.size == 0:
         del collection["frequencies"][freq]
         collection["ordering"].remove(freq)
@@ -195,7 +199,7 @@ def delete_task(task):
     frequency = task["frequency"]
 
     temp = _pull_file(frequency)
-    temp.remove_task(task["name"])
+    temp.detach_task(task["name"])
     in_memory[frequency] = temp
     changed[frequency] = True
 
@@ -211,7 +215,7 @@ def change_frequency(task, new_frequency):      # Add the case, where he changes
     task["frequency"] = new_frequency
 
     temp = _pull_file(old_frequency)
-    temp.remove_task(task["name"])
+    temp.detach_task(task["name"])
     in_memory[old_frequency] = temp
     changed[old_frequency] = True
 

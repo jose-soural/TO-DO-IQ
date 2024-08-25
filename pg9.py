@@ -15,8 +15,7 @@ config = {"last_refresh": date(2024, 8, 20),
 due = {"frequencies": {}, "glossary": {}, "ordering": []}
 overdue = {"frequencies": {}, "glossary": {}, "ordering": []}
 finished_today = {"frequencies": {}, "glossary": {}, "ordering": []}
-sleepers = dltl.DLTL()
-asleep = {"sleepers": sleepers, "glossary": {}}
+asleep = dltl.SleeperDLTL()
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
 week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -33,15 +32,15 @@ last_displayed = None
 
 def _pull_file(frequency):
     """Not meant for the end user. Pulls the desired file into memory (if it exists), or returns an empty DLTL."""
-    if f'{frequency}' in in_memory:
-        temp = in_memory[f'{frequency}']
+    if frequency in in_memory:
+        temp = in_memory[frequency]
     else:
         if path.exists(f'{frequency}.txt'):
             with open(f'{frequency}.txt', encoding="utf-8") as f:
                 temp = json.load(f)
         else:
             temp = dltl.DLTL()
-        in_memory[f'{frequency}'] = temp
+        in_memory[frequency] = temp
     return temp
 
 
@@ -50,32 +49,45 @@ def _delete_file(frequency):
     if path.exists(f'{frequency}.txt'):
         remove(f'{frequency}.txt')
     for collection in special:
-        task_list = collection["frequencies"].pop(f'{frequency}', None)
-        if task_list:
+        task_list = collection["frequencies"].pop(frequency, None)
+        if task_list is not None:
             current = task_list.head
             for _ in range(task_list.size):
                 del collection["glossary"][current.name]
+                # Deletes the node itself
+                next = current.next
+                del current
+                current = next
                 current = current.next
 
-    changed.pop(f'{frequency}', None)
+    current = sleepers.head
+    while current is not None:
+        next = current.next
+        if current.task["frequency"] == frequency:
+            del asleep["glossary"][current.task["name"]]  # Actually, I can do this through dltl methods!
+            _remove_node(current)
+    sleepers
+    task_list = collection["frequencies"].pop(frequency, None)
+
+    changed.pop(frequency, None)
 
 
 def _push_file(frequency, contents):  # might rewrite later to automatically take contents from in_memory,
     """Not meant for the end user. Pushes the current state of the given task list into the corresponding file."""
     # we'll see
-    if contents == empty_list:     # Protects from saving an empty task list
+    if contents == empty_list:  # Protects from saving an empty task list
         _delete_file(frequency)
     else:
         with open(f'{frequency}.txt', "w", encoding="utf-8") as f:
             json.dump(contents, f)
-    changed.pop(f'{frequency}', None)
+    changed.pop(frequency, None)
 
 
 def save_changes():
     """Saves all changes and progress made to all tasks and configurations."""
-    if changed.pop("special", False):
+    if changed.pop("special", None) is None:
         _push_file("special", special)
-    if changed.pop("config", False):
+    if changed.pop("config", None) is None:
         _push_file("config", config)
     for frequency in list(changed.keys()):
         _push_file(frequency, in_memory[frequency])
@@ -91,7 +103,8 @@ def _add_to_special(task, collection):
 
         collection["ordering"].append(freq)
         i = 0
-        while ordering_key[collection["ordering"][i]] < ordering_key[freq]:     # the search could be optimized, but the insert below negates any reason to
+        while ordering_key[collection["ordering"][i]] < ordering_key[
+            freq]:  # the search could be optimized, but the insert below negates any reason to
             i += 1
         collection["ordering"].insert(i, freq)
         collection["ordering"].pop()
@@ -100,7 +113,7 @@ def _add_to_special(task, collection):
     collection["glossary"][task["name"]] = task
 
 
-def _remove_from_special(task, collection):     # This could cause a meltdown
+def _remove_from_special(task, collection):  # This could cause a meltdown
     """Not meant for the end user. Removes a task (and the corresponding DLTL) from the collection."""
     collection["glossary"].pop(task["name"], None)
     freq = task["frequency"]
@@ -131,7 +144,8 @@ def _to_date(days):
     return today + delta
 
 
-def create_task(name, frequency="once", task_description="", status="unfinished"):       # Maybe special treatment for "once" tasks?
+def create_task(name, frequency="once", task_description="",
+                status="unfinished"):  # Maybe special treatment for "once" tasks?
     """Creates a task and automatically adds it to the correct list."""
     frequency = frequency.casefold()
     if status == "finished" and frequency == "once":
@@ -157,7 +171,7 @@ def create_task(name, frequency="once", task_description="", status="unfinished"
     in_memory[frequency] = temp
     changed[frequency] = True
 
-    print(f'Task "{name}" was successfully created!')   # perhaps add to finished today if finished?
+    print(f'Task "{name}" was successfully created!')  # perhaps add to finished today if finished?
     return
 
 
@@ -170,7 +184,8 @@ def _target_task_in_special(digit_input):
     return temp.fetch_node_at_position(digit_input).task
 
 
-def _target_task(user_input):       # Add properly: Block the user from doing shit with "(un)finished" selections (sorry, this is not allowed. View the main list)
+def _target_task(
+        user_input):  # Add properly: Block the user from doing shit with "(un)finished" selections (sorry, this is not allowed. View the main list)
     """Not meant for the end user. Retrieves a task based on the user typing its name or position in displayed list."""
     if user_input.isdigit():
         if last_displayed in special:
@@ -178,7 +193,8 @@ def _target_task(user_input):       # Add properly: Block the user from doing sh
         else:
             return last_displayed.fetch_node_at_position(user_input).task
     else:
-        return last_displayed["glossary"][user_input] if last_displayed in special else last_displayed.glossary[user_input]
+        return last_displayed["glossary"][user_input] if last_displayed in special else last_displayed.glossary[
+            user_input]
 
 
 def delete_task(task):
@@ -196,7 +212,7 @@ def delete_task(task):
             _remove_from_special(task, collection)
 
 
-def change_frequency(task, new_frequency):      # Add the case, where he changes it to once (and it's finished)
+def change_frequency(task, new_frequency):  # Add the case, where he changes it to once (and it's finished)
     """Changes the frequency (trigger condition) of the specified task."""
     task = _target_task(task)
     old_frequency = task["frequency"]
@@ -345,7 +361,7 @@ def change_name(task, new_name):
 def _display_special(collection, initial_index=1):
     """Not meant for the end user. Helper function for displaying all tasks in a nonDLTL collection."""
     if len(collection["ordering"]) == 0:
-        raise ValueError("The list you have tried to display is empty!")             # Need to add proper handling of this!
+        raise ValueError("The list you have tried to display is empty!")  # Need to add proper handling of this!
     for frequency in collection["ordering"]:
         print(frequency)
         print()
@@ -371,7 +387,7 @@ def _display_finished(frequency, status):
     temp = _pull_file(frequency)
     in_memory[frequency] = temp
     flag = temp.display_tasks_conditional(status)
-    if flag == 1:   # No tasks were displayed, includes empty list case
+    if flag == 1:  # No tasks were displayed, includes empty list case
         print("The list you have tried to display is empty!")
         return
     global last_displayed
