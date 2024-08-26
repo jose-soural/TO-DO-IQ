@@ -105,7 +105,7 @@ def _remove_from_special(task, collection):     # This could cause a meltdown
     collection["glossary"].pop(task["name"], None)
     freq = task["frequency"]
     temp = collection["frequencies"][freq]
-    temp.detach_task(task["name"])
+    temp.detach_node_by_name(task["name"])
     if temp.size == 0:
         del collection["frequencies"][freq]
         collection["ordering"].remove(freq)
@@ -187,7 +187,7 @@ def delete_task(task):
     frequency = task["frequency"]
 
     temp = _pull_file(frequency)
-    temp.detach_task(task["name"])
+    temp.detach_node_by_name(task["name"])
     in_memory[frequency] = temp
     changed[frequency] = True
 
@@ -203,7 +203,7 @@ def change_frequency(task, new_frequency):      # Add the case, where he changes
     task["frequency"] = new_frequency
 
     temp = _pull_file(old_frequency)
-    temp.detach_task(task["name"])
+    temp.detach_node_by_name(task["name"])
     in_memory[old_frequency] = temp
     changed[old_frequency] = True
 

@@ -5,8 +5,12 @@ today = date.today()
 class TaskNode:
     """A node of a doubly linked list."""
 
-    def __init__(self, task):
-        self.task = task
+    def __init__(self, name, frequency="once", description="", status="due", until=None):
+        self.name = name
+        self.frequency = frequency
+        self.description = description
+        self.status = status
+        self.until = until
         self.prev = None
         self.next = None
 
@@ -20,6 +24,24 @@ class DLTL:
         self.glossary = {}
         self.size = 0
 
+    def _add_node_to_glossary(self, node):
+        """A helper function. For regular DLTLs, it adds the key:node pair their own glossary."""
+        self.glossary[node.name] = node
+        self.size += 1
+
+
+    def _remove_node_from_glossary(self, node):
+        """A helper function. For regular DLTLs, it removes the key:node from their own glossary."""
+        del self.glossary[node.name]
+        self.size -= 1
+
+    def fetch_node(self, name):
+        """A helper function. For regular DLTLs, it fetches the node by its name from the DLTL's own glossary."""
+        node = self.glossary.get(name)
+        if node is None:
+            print("Error: Task not found.")     # Potentially want an error instead.
+        return node
+
     def append_node(self, node):
         """Appends a node to the end of the DLTL."""
         if self.size == 0:  # If list is empty
@@ -29,15 +51,10 @@ class DLTL:
             node.prev = self.tail
             self.tail = node
 
-        self.glossary[node.task["name"]] = node
-        self.size += 1
-
-    def append_task(self, task):
-        """Appends a task to the end of the DLTL."""
-        self.append_node(TaskNode(task))
+        self._add_node_to_glossary(node)
 
     def _detach_node(self, node):
-        """Detaches a node from the DLTL."""
+        """Detaches a node from the DLTL by the name of its task."""
         if node.prev is None:   # The node is the head
             self.head = node.next
         else:
@@ -50,31 +67,14 @@ class DLTL:
             node.next.prev = node.prev
             node.next = None
 
-        del self.glossary[node.task["name"]]
-        self.size -= 1
+        self._remove_node_from_glossary(node)
 
-    def detach_task(self, name):
-        """Detaches a task by its name."""
-        node = self.glossary.get(name)
-        if node is None:
-            print("Error: Task not found.")
-            return None                              # Potentially want an error instead.
-        self._detach_node(node)
-
-    def fetch_node(self, name):
-        """Fetches a node by the name of its task."""
-        node = self.glossary.get(name)
-        if node is None:
-            print("Error: Task not found.")
-            return None
-        return node
-
-    def fetch_task(self, name):
-        """Fetches a task by its name."""
+    def _detach_node_by_name(self, name):
+        """Detaches a node from the DLTL by the name of its task."""
         node = self.fetch_node(name)
         if node is None:
             return None
-        return node.task
+        self._detach_node(node)
 
     def fetch_node_at_position(self, position):
         """Fetches the node at the given position in the DLTL."""
@@ -91,22 +91,15 @@ class DLTL:
                 current = current.next
         return current
 
-    def fetch_task_at_position(self, position):
-        """Fetches the task at the given position in the DLTL."""
-        node = self.fetch_node_at_position(position)
-        if node is None:
-            return None
-        return node.task
-
     def remove_position(self, position):
-        """Remove a task (node) at the given position."""
+        """Remove a task node at the given position."""
         node = self.fetch_node_at_position(position)
         if node is None:
             return None
         self._detach_node(node)
 
     def insert_node(self, node, position):
-        """Adds a node at the specified position."""
+        """Inserts a node to the specified position."""
         if position < 1 or position > self.size:
             print("Error: Invalid position.")
             return None
@@ -129,18 +122,12 @@ class DLTL:
             else:
                 node.next.prev = node
 
-        self.glossary[node.task["name"]] = node
-        self.size += 1
-
-    def insert_task(self, task, position):
-        """Adds a task at the specified position."""
-        self.insert_node(TaskNode(task), position)
+        self._add_node_to_glossary(node)
 
     def move_task(self, name, new_position):
         """Moves a task (node) to the specified position."""
-        node = self.glossary.get(name)
+        node = self.fetch_node(name)
         if node is None:
-            print("Error: Task not found.")
             return None
         if new_position < 1 or new_position > self.size:
             print("Error: Invalid position.")
@@ -153,7 +140,7 @@ class DLTL:
         """Displays the names of all tasks as a numbered list (starting from an arbitrary number) and returns the last index +1."""
         current = self.head
         for _ in range(self.size):
-            print(f'{initial_index})   {current.task["name"]}')
+            print(f'{initial_index})   {current.name}')
             initial_index += 1
             current = current.next
         return initial_index
@@ -162,8 +149,8 @@ class DLTL:
         """Displays the names of tasks of the given status as a numbered list (starting from an arbitrary number) and returns the last index +1."""
         current = self.head
         for _ in range(self.size):
-            if current.task["status"] == status:
-                print(f'{initial_index})   {current.task["name"]}')
+            if current.status == status:
+                print(f'{initial_index})   {current.name}')
                 initial_index += 1
             current = current.next
         return initial_index
@@ -172,13 +159,12 @@ class DLTL:
 class SleeperDLTL(DLTL):
     """A DLTL specialized for sleeping tasks."""
 
-    def add_sleeper(self, task):
+    def add_sleeper(self, node):
         """Adds a sleeping task to the appropriate position in the DLTL, based on its wake-up ('until') date."""
-        node = TaskNode(task)
-        until = task["until"]
+        until = node.until
 
         successor = self.head
-        while successor is not None and until > successor.task["until"]:
+        while successor is not None and until > successor.until:
             successor = successor.next
         if successor is None:       # The added task goes at the end
             if self.tail is None:   # The list is empty
@@ -198,8 +184,7 @@ class SleeperDLTL(DLTL):
                 node.prev.next = node
                 node.next.prev = node
 
-        self.glossary[node.task["name"]] = node
-        self.size += 1
+        self._add_node_to_glossary(node)
 
     def wake_up_head(self):
         """Wakes up the head of the DLTL (removes the node and passes it to the caller)."""
@@ -210,13 +195,12 @@ class SleeperDLTL(DLTL):
         self.head.prev = None
         waker.next = None
 
-        del self.glossary[waker.task["name"]]
-        self.size -= 1
+        self._remove_node_from_glossary(waker)
         return waker
 
     def wake_up_sleepers(self, end_date, target_dltl):
         """Wakes up all sleepers whose wake-up ('until') date is before the end_date (included) and appends them to the target DLTL."""
-        while self.head is not None and self.head.task["until"] <= end_date:
+        while self.head is not None and self.head.until <= end_date:
             target_dltl.append_node(self.wake_up_head())
         if self.head is None:   # The list emptied completely
             self.tail = None
@@ -225,7 +209,103 @@ class SleeperDLTL(DLTL):
         """Displays the names AND wake-up ('until') date of all tasks as a numbered list (starting from an arbitrary number) and returns the last index +1."""
         current = self.head
         for _ in range(self.size):
-            print(f'{initial_index})   {current.task["name"]}   awakens in {(current.task["until"]-today).days} days, on {current.task["until"]}.')
+            print(f'{initial_index})   {current.name}   awakens in {(current.until-today).days()} days, on {current.until}.')
             initial_index += 1
             current = current.next
         return initial_index
+
+class MemberDLTL(DLTL):
+    """A DLTL that is part of a group of DLTLs (with a shared glossary)."""
+
+    def __init__(self, parent_group):
+        self.parent = parent_group
+        self.head = None
+        self.tail = None
+        self.size = 0
+
+    def _add_node_to_glossary(self, node):
+        """A helper function. For member DLTLs, it adds the key:node pair to the parent's glossary."""
+        self.parent.glossary[node.name] = node
+        self.size += 1
+
+
+    def _remove_node_from_glossary(self, node):
+        """A helper function. For member DLTLs, it removes the key:node from the parent's glossary."""
+        del self.parent.glossary[node.name]
+        self.size -= 1
+
+    def fetch_node(self, name):
+        """A helper function. For member DLTLs, it fetches the node by its name from the parent's glossary."""
+        node = self.parent.glossary.get(name)
+        if node is None:
+            print("Error: Task not found.")     # Potentially want an error instead.
+        return node
+
+
+
+class DLTLGroup():
+    """A group of DLTLs with a common glossary."""
+
+    def __init__(self):
+        self.members = {}
+        self.glossary = {}
+        self.ordering = []
+
+    def initiate_member(self, member_name, ordering_key:dict):
+        """Creates an empty member DLTL of the given name and adds it to the group, to the appropriate position."""
+        self.members[member_name] = MemberDLTL(self)
+
+        # Add the member to the ordering. The search could be optimized, but that wouldn't change O(n) complexity.
+        self.ordering.append(member_name)
+        i = 0
+        while ordering_key[self.ordering[i]] < ordering_key[member_name]:
+            i += 1
+        self.ordering.insert(i, member_name)
+        self.ordering.pop()
+
+    def remove_member(self, member_name):
+        """Removes the specified DLTL from the group."""
+        member = self.members.get(member_name)
+        if member is None:
+            return None         # Do I want to raise an error? Or to say something?
+
+        del self.members[member_name]
+        self.ordering.remove(member_name)
+
+        # remove all deleted tasks from the glossary
+        current = member.head
+        for _ in range(member.size):
+            del self.glossary[current.name]
+            current = current.next
+
+    def fetch_node(self, name):
+        """A helper function. For regular DLTLs, it fetches the node by its name from the DLTL's own glossary."""
+        node = self.glossary.get(name)
+        if node is None:
+            print("Error: Task not found.")     # Potentially want an error instead.
+        return node
+
+    def append_node(self, node, ordering_key:dict):
+        """Appends the node to the appropriate member of the group (if said member doesn't exist, it creates it)"""
+        if (freq := node.frequency) not in self.members:
+            self.initiate_member(freq, ordering_key)
+        self.members[freq].append_node(node)
+
+    def _detach_node(self, name):
+        """Detaches a node from the DLTL group by the name of its task."""
+        node = self.fetch_node(name)
+        if node is None:
+            return None
+
+        self.members[node.frequency]._detach_node(node)
+        # a tady když to byl poslední, tak smazat member
+
+    def _remove_from_special(task, collection):  # This could cause a meltdown
+        """Not meant for the end user. Removes a task (and the corresponding DLTL) from the collection."""
+        collection["glossary"].pop(task["name"], None)
+        freq = task["frequency"]
+        temp = collection["frequencies"][freq]
+        temp.detach_node_by_name(task["name"])
+        if temp.size == 0:
+            del collection["frequencies"][freq]
+            collection["ordering"].remove(freq)

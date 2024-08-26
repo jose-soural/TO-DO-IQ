@@ -1,4 +1,4 @@
-import json
+import pickle
 from os import path
 from os import remove
 from datetime import date, datetime, timedelta
@@ -8,22 +8,33 @@ today = date.today()
 now = datetime.now()
 empty_list = dltl.DLTL()
 
-config = {"last_refresh": date(2024, 8, 20),
+
+def pickle_into_file(contents, file_name):
+    with open(f'{file_name}.pkl', "wb") as f:
+        pickle.dump(contents, f)
+
+
+def unpickle_file(file_name):
+    with open(f'{file_name}.pkl', "rb") as f:
+        return pickle.load(f)
+
+
+config = unpickle_file("config")
+what_i_want_to_have_in_config = {"last_refresh": date(2024, 8, 20),
           "ordering_key": {"once": 1, "daily": 2}}
 # specific dates should go in the front I guess
 
-due = {"frequencies": {}, "glossary": {}, "ordering": []}
-overdue = {"frequencies": {}, "glossary": {}, "ordering": []}
-finished_today = {"frequencies": {}, "glossary": {}, "ordering": []}
-asleep = dltl.SleeperDLTL()
+due = unpickle_file("due")
+overdue = unpickle_file("overdue")
+finished_today = unpickle_file("finished_today")
+asleep = unpickle_file("asleep")
+DLTL_groups = {"due": due, "overdue": overdue, "finished_today": finished_today}
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
 week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
 seasons = {"winter", "spring", "summer", "fall"}
-
-counting = {}
-dates = {}
-special = {"due": due, "overdue": overdue, "finished_today": finished_today}
+counting = unpickle_file("counting")
+dates = unpickle_file("dates")
 
 in_memory = {}
 changed = {}
@@ -35,9 +46,8 @@ def _pull_file(frequency):
     if frequency in in_memory:
         temp = in_memory[frequency]
     else:
-        if path.exists(f'{frequency}.txt'):
-            with open(f'{frequency}.txt', encoding="utf-8") as f:
-                temp = json.load(f)
+        if path.exists(f'{frequency}.pkl'):
+            temp = unpickle_file(f'{frequency}.pkl')
         else:
             temp = dltl.DLTL()
         in_memory[frequency] = temp
@@ -46,8 +56,8 @@ def _pull_file(frequency):
 
 def _delete_file(frequency):
     """Not meant for the end user. Permanently deletes the specified file and all the tasks in it."""
-    if path.exists(f'{frequency}.txt'):
-        remove(f'{frequency}.txt')
+    if path.exists(f'{frequency}.pkl'):
+        remove(f'{frequency}.pkl')
     for collection in special:
         task_list = collection["frequencies"].pop(frequency, None)
         if task_list is not None:
@@ -78,8 +88,7 @@ def _push_file(frequency, contents):  # might rewrite later to automatically tak
     if contents == empty_list:  # Protects from saving an empty task list
         _delete_file(frequency)
     else:
-        with open(f'{frequency}.txt', "w", encoding="utf-8") as f:
-            json.dump(contents, f)
+        pickle_into_file(contents, frequency)
     changed.pop(frequency, None)
 
 
@@ -96,32 +105,7 @@ def save_changes():
 # here I ought to add the two EXIT functions.
 
 
-def _add_to_special(task, collection):
-    """Not meant for the end user. Adds a task (and the corresponding DLTL, maintaining order) to the collection."""
-    if (freq := task["frequency"]) not in collection["frequencies"]:
-        collection["frequencies"][freq] = dltl.DLTL()
 
-        collection["ordering"].append(freq)
-        i = 0
-        while ordering_key[collection["ordering"][i]] < ordering_key[
-            freq]:  # the search could be optimized, but the insert below negates any reason to
-            i += 1
-        collection["ordering"].insert(i, freq)
-        collection["ordering"].pop()
-
-    collection["frequencies"][freq].append_task(task)
-    collection["glossary"][task["name"]] = task
-
-
-def _remove_from_special(task, collection):  # This could cause a meltdown
-    """Not meant for the end user. Removes a task (and the corresponding DLTL) from the collection."""
-    collection["glossary"].pop(task["name"], None)
-    freq = task["frequency"]
-    temp = collection["frequencies"][freq]
-    temp.detach_task(task["name"])
-    if temp.size == 0:
-        del collection["frequencies"][freq]
-        collection["ordering"].remove(freq)
 
 
 def _viability(frequency):
@@ -203,7 +187,7 @@ def delete_task(task):
     frequency = task["frequency"]
 
     temp = _pull_file(frequency)
-    temp.detach_task(task["name"])
+    temp.detach_node_by_name(task["name"])
     in_memory[frequency] = temp
     changed[frequency] = True
 
@@ -219,7 +203,7 @@ def change_frequency(task, new_frequency):  # Add the case, where he changes it 
     task["frequency"] = new_frequency
 
     temp = _pull_file(old_frequency)
-    temp.detach_task(task["name"])
+    temp.detach_node_by_name(task["name"])
     in_memory[old_frequency] = temp
     changed[old_frequency] = True
 
