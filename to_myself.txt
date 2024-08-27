@@ -26,4 +26,7 @@ Stuff interacting with last_displayed needs an update. (In the end I'm gonna hav
 A slight error in my code: sometimes I treat the special list as a list of strings, sometimes as its contents. Whoops. Have to fix that.
 
 
-# Ensure all references are removes, so it gets picked up by the garbage collector
+# Ensure all references are removed, so it gets picked up by the garbage collector
+
+Just a note: Currently, when I move a task from "asleep", I don't empty it's until attribute. This shouldn't cause any problems,
+but it is still technically a bug

@@ -68,6 +68,14 @@ class DLTL:
 
         self._remove_node_from_glossary(node)
 
+    def detach_node_by_name(self, name):
+        """Detaches a node from the DLTL group by its name."""
+        node = self.fetch_node(name)
+        if node is None:
+            return None
+        self.detach_node(node)
+        return True
+
     def fetch_node_at_position(self, position):
         """Fetches the node at the given position in the DLTL."""
         if position < 1 or position > (size := self.size):
@@ -108,6 +116,7 @@ class DLTL:
                 node.next.prev = node
 
         self._add_node_to_glossary(node)
+        return True
 
     def insert_node_ab(self, node_a, node_b):
         """Inserts node_a in front of node_b."""
@@ -129,6 +138,7 @@ class DLTL:
 
         self.detach_node(node)
         self.insert_node(node, new_position)
+        return True
 
     def move_node_ab(self, node_a, node_b):
         """Moves node_a in front of node_b."""
@@ -230,6 +240,15 @@ class SleeperDLTL(DLTL):
         if self.head is None:   # The list emptied completely
             self.tail = None
 
+    def detach_all_frequency(self, frequency):
+        """Removes all tasks of the given frequency from the SleeperDLTL."""
+        current = self.head
+        while current is not None:
+            next_node = current.next
+            if current.frequency == frequency:
+                self.detach_node(current)
+            current = next_node
+
     @staticmethod
     def change_frequency(node, new_frequency):
         """Changes the frequency of the given task node."""
@@ -310,19 +329,18 @@ class DLTLGroup:
         self.ordering.insert(i, member_name)
         self.ordering.pop()
 
-    def remove_member(self, member_name):
-        """Removes the specified DLTL from the group."""
+    def delete_member(self, member_name):
+        """Removes the specified DLTL from the group, deleting all the tasks in it."""
         member = self.members.pop(member_name)
         if member is None:
             return None         # Do I want to raise an error? Or to say something?
 
         self.ordering.remove(member_name)
 
-        # remove all deleted tasks from the glossary
-        current = member.head
-        for _ in range(member.size):
-            del self.glossary[current.name]
-            current = current.next
+        # remove all deleted tasks
+        while member.head is not None:
+            member.detach_node(member.head)
+        return True
 
     def fetch_node(self, name):
         """A helper function. For regular DLTLs, it fetches the node by its name from the DLTL's own glossary."""
@@ -337,7 +355,7 @@ class DLTLGroup:
             self.initiate_member(freq, ordering_key)
         self.members[freq].append_node(node)
 
-    def _detach_node(self, node):
+    def detach_node(self, node):
         """Detaches a node from the DLTL group."""
         freq = node.frequency
         member = self.members[freq]
@@ -347,9 +365,17 @@ class DLTLGroup:
             del self.members[freq]
             self.ordering.remove(freq)
 
+    def detach_node_by_name(self, name):
+        """Detaches a node from the DLTL group by its name."""
+        node = self.fetch_node(name)
+        if node is None:
+            return None
+        self.detach_node(node)
+        return True
+
     def move_across_group(self, node, new_dltl, ordering_key: dict):
         """Moves the given node to the specified DLTL in the group (which it creates if necessary)."""
-        self._detach_node(node)
+        self.detach_node(node)
         node.frequency = new_dltl
         self.append_node(node, ordering_key)
 
@@ -413,7 +439,7 @@ class DLTLGroup:
         elif self.moving_across_group_warning() == "N":
             return "N", "N"             # So it doesn't throw an error
         else:
-            self._detach_node(node_a)
+            self.detach_node(node_a)
             node_a.frequency = freq_b
             self.members[freq_b].insert_task_ab(node_a, node_b)
             return freq_a, node_a       # This is for reflecting the change in the outer DLTL as well
@@ -425,7 +451,7 @@ class DLTLGroup:
         return self.move_node_ab(node, node_b)
 
     def change_frequency(self, node, new_frequency, ordering_key: dict):
-        self._detach_node(node)
+        self.detach_node(node)
         node.frequency = new_frequency
         self.append_node(node, ordering_key)
 
