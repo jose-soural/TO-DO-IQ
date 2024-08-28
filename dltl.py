@@ -188,6 +188,23 @@ class DLTL:
             current = current.next
         return result
 
+    def display_alongside_others(self, finished=False, initial_index=1):
+        """Meant for displaying the contents of multiple DLTLs at once. Displays the names of all (optionally only
+        finished) tasks as a numbered list (starting from a given index) and returns the last displayed index + 1."""
+        current = self.head
+        if finished:
+            for _ in range(self.size):
+                if current.status == "finished":
+                    print(f'{initial_index})   {current.name}')
+                    initial_index += 1
+                current = current.next
+        else:
+            for _ in range(self.size):
+                print(f'{initial_index})   {current.name}')
+                initial_index += 1
+                current = current.next
+        return initial_index
+
 
 class SleeperDLTL(DLTL):
     """A DLTL specialized for sleeping tasks."""

@@ -21,7 +21,7 @@ def unpickle_file(file_name):
 
 config = unpickle_file("config")
 what_i_want_to_have_in_config = {"last_refresh": date(2024, 8, 20),
-          "ordering_key": {"once": 1, "daily": 2}, "american dates": False}
+                                 "ordering_key": {"once": 1, "daily": 2}, "american dates": False}
 # specific dates should go in the front I guess
 
 due = unpickle_file("due")
@@ -39,7 +39,7 @@ dates = unpickle_file("dates")
 
 in_memory = {}
 changed = {}
-last_displayed = None
+last_displayed = []
 ld_origin = None     # Stores what the source of the ld list was
 
 
@@ -121,7 +121,7 @@ def _set_until_date():
     else:
         try:
             until = date(int(until[0:4]), int(until[5:7]), int(until[8:10]))
-        except:
+        except (ValueError, TypeError, IndexError):
             print("Error: Did not receive a date in the specified format. Please try again from the beginning.")
             until = _set_until_date()
     return until
@@ -137,7 +137,7 @@ def _viable_frequency(frequency):
     # It isn't in the above, so it would have to be a date. If it isn't, the following raises a ValueError.
     if len(frequency) != 5:
         raise ValueError("The frequency is too short/long.")
-    if american_dates:
+    if config["american_dates"]:
         frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
     else:
         frequency = date(2020, int(frequency[3:5]), int(frequency[0:2]))
@@ -164,6 +164,7 @@ def save_changes():
     for frequency in list(changed.keys()):      # The list is there since we are changed the dict while iterating
         _push_file(frequency, in_memory[frequency])
 
+
 def exit_without_saving():
     """Properly exits the programme WITHOUT saving the changes made to the tasks and programme configurations."""
 
@@ -173,9 +174,11 @@ def exit_programme():
     save_changes()
     exit_without_saving()
 
+
 def _catch_close_command():
     """Not meant for the end user. Catches the programme being closed in an improper way and automatically
     triggers proper close sequence."""
+
 
 def _create_task_input_viability(frequency, status):
 
@@ -224,12 +227,14 @@ def create_task(name, frequency="once", task_description="", status="due"):
     print(f'Task "{name}" was successfully created!')
     return True     # Just to signal successful completion
 
+
 def _fetch_position_from_ld(position: int):
     """Not meant for the end user. Fetches a task node by its position in the last_displayed list."""
     if position < 1 or position > len(last_displayed):
         print("Error: Invalid position.")
         return None
     return last_displayed[position-1]
+
 
 def _fetch_name_from_ld(name):
     """Not meant for the end user. Fetches a task node (that was in the last_displayed list) by its name."""
@@ -240,6 +245,7 @@ def _fetch_name_from_ld(name):
     else:
         temp = _pull_file(ld_origin)
     return temp.fetch_node(name)
+
 
 def _fetch_from_ld(task):
     """Not meant for the end user. Fetches a task node that was in the last_displayed list."""
@@ -286,7 +292,8 @@ def change_name(task, new_name):
     # First the frequency copy
     freq = _pull_file(frequency_copy.frequency)
     if new_name in freq.glossary:
-        print(f'Error: Task with name {new_name} and frequency {frequency_copy.frequency} already exists. Name change was aborted.')
+        print(f'Error: Task with name {new_name} and frequency {frequency_copy.frequency}'
+              f'already exists. Name change was aborted.')
         return False
     freq.rename_node(frequency_copy, new_name)
     _update_dltl(frequency_copy.frequency, freq)
@@ -296,6 +303,7 @@ def change_name(task, new_name):
         temp = statuses[status_copy.status]
         temp.rename_node(status_copy, new_name)
         changed[status_copy.status] = True
+
 
 def _change_freq_ask_user():
     if (response := input("Warning: Changing the frequency of a 'finished' task to 'once' will remove the task."
@@ -362,18 +370,18 @@ def change_description(task, new_description):
         changed[status_copy.status] = True
 
 
-def renew(task):
-    """Sets a task's status to 'due' and ads it to the agenda."""
+def _change_status(task, new_status):
+    """not for user -- umbrella function -- but not for asleep"""
     status_copy, frequency_copy = _fetch_both_copies(task)
     if frequency_copy is None:  # The status copy may not exist if status == "finished"
         return False
-    elif frequency_copy.status == "due":
-        print("Error: The given task is already due. Aborting process.")
+    elif frequency_copy.status == new_status:
+        print(f'Error: The given task is already {new_status}. Aborting process.')
         return False
 
     # First the frequency copy
     freq = _pull_file(frequency_copy.frequency)
-    freq.change_status(frequency_copy, "due")
+    freq.change_status(frequency_copy, new_status)
     _update_dltl(frequency_copy.frequency, freq)
 
     # Then the status copy
@@ -381,238 +389,203 @@ def renew(task):
         temp = statuses[status_copy.status]
         temp.detach_node(status_copy)
         changed[status_copy.status] = True
-    due.append_node(dltl.TaskNode(frequency_copy.name, frequency_copy.frequency,  frequency_copy.description,
-                                  "due"), config["ordering_key"])
-    changed["due"] = True
-
-
-def mark_as_overdue(task):
-    """Sets a task's status to 'overdue', marking its completion as high priority."""
-    status_copy, frequency_copy = _fetch_both_copies(task)
-    if frequency_copy is None:  # The status copy may not exist if status == "finished"
-        return False
-    elif frequency_copy.status == "overdue":
-        print("Error: The given task is already overdue. Aborting process.")
-        return False
-
-
-
-
-def mark_as_overdue(task):
-    """Sets a task's status to 'overdue', marking its completion as high priority."""
-    task = _target_task(task)
-    frequency = task["frequency"]
-
-    temp = _pull_file(frequency)
-    task = temp.fetch_task(task["name"])
-    task["status"] = "overdue"
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-    _add_to_special(task, overdue)
----------------------------------
-
-
-
-def description(task):
-    """Returns the description of the specified task, if it has one."""
-    descript = _target_task(task)["description"]
-    if descript == "":
-        print("Requested task has no description.")
-        return
-    print(descript)
+    statuses[new_status].append_node(status_copy, config["ordering_key"])
+    changed[new_status] = True
 
 
 def set_asleep(task):
-    """Sets the task to 'sleep' making become due on a specific day. Note: this makes it ignore its normal trigger condition."""
-    task = _target_task(task)
-    frequency = task["frequency"]
+    """Sets the task to 'sleep' making become due on a specific day.
+    Note: this makes it ignore its normal trigger condition."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
 
-    print("Putting task to sleep. Please input the date you would like the task to awaken on.")
-    print("If you would like to give the number of days instead, type 'days'.")
-    if (until := input(f'Type the date in the format {today}')) == "days":
-        until = _to_date(until)
+    status_copy.until = frequency_copy.until = _set_until_date()
 
-    temp = _pull_file(frequency)
-    task = temp.fetch_task(task["name"])
-    task["status"] = "asleep"
-    task["until"] = until
-    in_memory[frequency] = temp
-    changed[frequency] = True
+    # First the frequency copy
+    freq = _pull_file(frequency_copy.frequency)
+    freq.change_status(frequency_copy, "asleep")
+    _update_dltl(frequency_copy.frequency, freq)
 
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-    _add_to_special(task, asleep)
+    # Then the status copy
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.detach_node(status_copy)
+        changed[status_copy.status] = True
+    asleep.add_sleeper(status_copy)
+    changed["asleep"] = True
+
+
+def renew(task):
+    """Sets a task's status to 'due' and ads it to the agenda."""
+    _change_status(task, "due")
+
+
+def mark_as_overdue(task):
+    """Sets a task's status to 'overdue', marking its completion as high priority."""
+    _change_status(task, "overdue")
 
 
 def finish(task):
     """Sets a task's status to 'finished', marking its completion and taking it off the agenda."""
-    task = _target_task(task)
-    frequency = task["frequency"]
-
-    temp = _pull_file(frequency)
-    task = temp.fetch_task(task["name"])
-    task["status"] = "finished"
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-    _add_to_special(task, finished_today)
+    _change_status(task, "finished")
 
 
-def change_name(task, new_name):
-    """Changes the name of the specified task."""
-    task = _target_task(task)
-    frequency = task["frequency"]
-    old_name = task["name"]
-
-    temp = _pull_file(frequency)
-    if new_name in temp.glossary:
-        print(f'Error: Task with name {new_name} and frequency {frequency} already exists. Name change was aborted.')
-        return -1
-    node = temp.fetch_task(old_name)
-    node.name = new_name
-    node.task["name"] = new_name
-    temp.glossary[new_name] = temp.glossary[old_name]
-    del temp.glossary[old_name]
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
-    for collection in special:
-        if old_name in collection["glossary"]:
-            collection["glossary"][new_name] = collection["glossary"][old_name]
-            del collection["glossary"][old_name]
-            collection["glossary"][new_name].task["name"] = new_name
-            collection["glossary"][new_name].name = new_name
+def _prepare_description(task_description):
+    if task_description == "":
+        return "None"
+    return task_description
 
 
-def _display_special(collection, initial_index=1):
-    """Not meant for the end user. Helper function for displaying all tasks in a nonDLTL collection."""
-    if len(collection["ordering"]) == 0:
-        raise ValueError("The list you have tried to display is empty!")  # Need to add proper handling of this!
-    for frequency in collection["ordering"]:
-        print(frequency)
-        print()
-        collection["frequencies"][frequency].display_tasks()
-        initial_index += collection["frequencies"][frequency].size
-    global last_displayed
-    last_displayed = collection
-    return initial_index
+def description(task):
+    """Displays the description of the task."""
+    task = _fetch_from_ld(task)
+    if task is None:
+        return None
+
+    print(f'Task {task.name} description:')
+    print()
+    print(_prepare_description(task.description))
 
 
-def _display_subspecial(collection, subspecial):
-    """Not meant for the end user. Helper function for displaying all tasks from a DLTL saved in a nonDLTL collection"""
-    if subspecial not in collection["frequencies"]:
-        print("The list you have tried to display is empty!")
-        return
-    collection["frequencies"][subspecial].display_tasks()
-    global last_displayed
-    last_displayed = collection["frequencies"][subspecial]
+def detail(task):
+    """Displays all information about the task."""
+    task = _fetch_from_ld(task)
+    if task is None:
+        return None
+
+    print("Task name:", task.name, "", "Task frequency:", task.frequency, "",
+          "Task description:", _prepare_description(task.description), "", "Task status:", task.status, "",
+          "Task wake-up date:", task.until, sep="\n")
 
 
-def _display_finished(frequency, status):
-    """Not meant for the end user. Helper function for displaying all 'finished' tasks from a DLTL."""
-    temp = _pull_file(frequency)
-    in_memory[frequency] = temp
-    flag = temp.display_tasks_conditional(status)
-    if flag == 1:  # No tasks were displayed, includes empty list case
-        print("The list you have tried to display is empty!")
-        return
-    global last_displayed
-    last_displayed = status
-
-
-def display_tasks(category, status="all"):
-    """Displays all the tasks of a given category and status. For valid parameters, see ___"""
-    if category in special:
-        _display_special(category)
+def _display_all_warning():
+    print("You are about to tasks from all lists currently logged by the program."
+          "Please note that this may be demanding on your device AND that this display is view only, meaning"
+          "you will NOT be able to access or edit task details.")
+    if (response := input("Do you wish to proceed? (Y/N)")) == "Y":
+        return True
+    elif response == "N":
+        return False
     else:
-        if status == "all":
-            category.display_tasks()
-            global last_displayed
-            last_displayed = category
-        elif status == "due":
-            _display_subspecial(due, category)
-        elif status == "overdue":
-            _display_subspecial(overdue, category)
-        elif status == "asleep":
-            _display_subspecial(asleep, category)
-        elif status == "finished_today":
-            _display_subspecial(finished_today, category)
-        elif status == "finished":
-            _display_finished(category, "finished")
-        elif status == "unfinished":
-            _display_finished(category, "unfinished")
+        print("Did not understand response. please try again.")
+        return _display_all_warning()
 
 
-def to_do():
-    """Displays all tasks on today's agenda."""
+def display_all(finished=False):
+    """Displays all (optionally only finished) tasks currently logged by the programme.
+    Please note that this may be demanding on your device."""
 
-    i = 1
-    first_failed = False
-    try:
-        i = _display_special(overdue)
-    except ValueError:
-        first_failed = True
-    try:
-        _display_special(due, i)
-    except ValueError as e:
-        if first_failed:
-            print(f'Error: {e}')
+    if _display_all_warning() is False:
+        return False
 
+    global last_displayed, ld_origin
+    last_displayed, ld_origin = None, "unsupported"
 
-def due():
-    """Displays all due tasks except tasks that are overdue."""
-    _display_special(due)
-
-
-def overdue():
-    """Displays all overdue tasks."""
-    _display_special(overdue)
-
-
-def asleep():
-    """Displays all tasks which are asleep."""
-    _display_special(asleep)
-
-
-def finished_today():
-    """Displays all tasks which were finished today."""
-    _display_special(finished_today)
-
-
-def display_all():
-    """Displays all tasks currently logged by the program. Please note that this may be demanding on your device."""
     i = 1
     for frequency in ordinary:
         print(frequency)
         print()
-        i = _pull_file(frequency).display_tasks(i)
+        i = _pull_file(frequency).display_alongside_others(finished, i)
     for frequency in week:
         print(frequency)
         print()
-        i = _pull_file(frequency).display_tasks(i)
+        i = _pull_file(frequency).display_alongside_others(finished, i)
     for frequency in seasons:
         print(frequency)
         print()
-        i = _pull_file(frequency).display_tasks(i)
+        i = _pull_file(frequency).display_alongside_others(finished, i)
     for frequency in counting:
         print(frequency)
         print()
-        i = _pull_file(frequency).display_tasks(i)
+        i = _pull_file(frequency).display_alongside_others(finished, i)
     for frequency in dates:
         print(frequency)
         print()
-        i = _pull_file(frequency).display_tasks(i)
+        i = _pull_file(frequency).display_alongside_others(finished, i)
 
-    if i == 1:
-        print("You have no tasks. Consider making some!")
+        if i == 1:
+            if finished:
+                print("You have no finished tasks.")
+            else:
+                print("You have no tasks. Consider making some!")
+        else:
+            print()
+            print("And that is all.")
+
+
+def display_list(frequency, status):
+    """Actually is for the user after all."""
+    global last_displayed, ld_origin
+
+    if frequency == "all":
+
+        # Asleep is a special case
+        if status == "asleep":
+            last_displayed = asleep.display_task_names()
+            ld_origin = "asleep"
+
+        # All and finished are the other special case
+        elif status == "all":
+            display_all()
+        elif status == "finished":
+            display_all(True)
+
+        # All tasks from a DLTL group
+        else:
+            last_displayed = groups[status].display_task_names()
+            ld_origin = status
+
+    elif status == "all":
+        last_displayed = _pull_file(frequency).display_task_names()
+        ld_origin = frequency
     else:
+        target = status[status].members[frequency]
+        last_displayed = target.display_task_names([None] * target.size)
+        ld_origin = status
+
+
+def to_do():
+    """Displays all tasks on today's agenda."""
+    if (size := (overdue.size + due.size)) == 0:
+        print("You have finished all your tasks. Congratulations!")
+        return
+    global last_displayed, ld_origin
+    last_displayed = [None] * size
+    ld_origin = "to_do"
+
+    initial_index = 1
+    print("---- overdue ----")
+    print("")
+    for frequency in overdue.ordering:
+        print(frequency, ":", sep="")
+        last_displayed, initial_index = overdue.members[frequency].display_task_names(last_displayed, initial_index)
         print()
-        print("And that is all.")
+    print("")
+    print("---- due ----")
+    print("")
+    for frequency in due.ordering:
+        print(frequency, ":", sep="")
+        last_displayed, initial_index = overdue.members[frequency].display_task_names(last_displayed, initial_index)
+        print()
+    print("And that is all.")
+
+
+def due():
+    """Displays all due tasks except tasks that are overdue."""
+    display_list("all", "due")
+
+
+def overdue():
+    """Displays all overdue tasks."""
+    display_list("all", "overdue")
+
+
+def asleep():
+    """Displays all tasks which are asleep."""
+    display_list("all", "asleep")
+
+
+def finished_today():
+    """Displays all tasks which were finished today."""
+    display_list("all", "finished_today")

@@ -1,32 +1,16 @@
-# TO-DO:
-- catch the user closing the programme via keyboard etc. and automatically initiate proper exit sequence (= exit function)
 
-# asleep function -- reálně budu prezentovat jako "make it so that it is due on the date so-so. NOte: this takes
-# precedence over it's frequency."
-
-# TO-DO:
-- musím vlastně u všech (uživatelských) funkcí vychytat případy inputu, kdy je uživatel příliš blbej a zadá neplatný input.
-- dates aren't strings -- currently a lot of my functions don't work because of that...
-
-- whoops! forgot the names were in 2 places!
-
-
-"""
-Optimization Considerations
-
-Redundant Operations: In several methods (e.g., set_asleep, change_frequency), tasks are fetched multiple times. Consider fetching the task once and then performing the necessary operations on it.
-special Collection: If a task's frequency changes, the task is removed from all special collections and re-added. This is potentially inefficient, especially for large datasets. Consider optimizing this process to avoid unnecessary operations.
-"""
-
-The Asleep category needs special treatment. (In most functions)
 
 Stuff interacting with last_displayed needs an update. (In the end I'm gonna have to handle it differently)
+-- need to add proper behaviour for last_displayed == unsupported, to_do
+--- would be good = refactor the "evaluates last_displayed utility to myself" into its own function
+
+-- need to doublecheck all areas where I am working with finished/finished_today
+
+--- need to add validation checks to all user_input functions (mainly I forgot with frequency and status)
+--- would be good to ctrl + f the input() command and always caseform it
+
+((Just a note: Currently, when I move a task from "asleep", I don't empty it's until attribute. This shouldn't cause any problems,
+but it is still technically a bug))
 
 
-A slight error in my code: sometimes I treat the special list as a list of strings, sometimes as its contents. Whoops. Have to fix that.
 
-
-# Ensure all references are removed, so it gets picked up by the garbage collector
-
-Just a note: Currently, when I move a task from "asleep", I don't empty it's until attribute. This shouldn't cause any problems,
-but it is still technically a bug
