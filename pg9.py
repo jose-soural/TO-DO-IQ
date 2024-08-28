@@ -29,6 +29,7 @@ overdue = unpickle_file("overdue")
 finished_today = unpickle_file("finished_today")
 asleep = unpickle_file("asleep")
 groups = {"due": due, "overdue": overdue, "finished_today": finished_today}
+statuses = {"due": due, "overdue": overdue, "asleep": asleep, "finished": finished_today}
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
 week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
@@ -77,104 +78,26 @@ def _push_file(frequency, contents):  # might rewrite later to automatically tak
     changed.pop(frequency, None)
 
 
+def _update_dltl(target_name, contents):
+    in_memory[target_name] = contents
+    changed[target_name] = True
+
+
 def _add_node_to_dltl(node, target_dltl):       # Might refactor to include more in the future, we'll see by the uses
     target_dltl.append_node(node)
-    in_memory[node.frequency] = target_dltl
-    changed[node.frequency] = True
+    _update_dltl(node.frequency, target_dltl)
 
-def _remove_task_from_dltl(task):
-    frequency = task.frequency
-    temp = _pull_file(frequency)
-    temp.detach_node_by_name(task.name)
-    in_memory[frequency] = temp
-    changed[frequency] = True
 
 def _add_node_to_group(node, group_name):
-    groups[group_name].append_node(dltl.TaskNode(name, frequency, task_description, status), ordering_key)
+    groups[group_name].append_node(node, config["ordering_key"])
     changed[group_name] = True
 
 
-def _remove_task_from_group(task, group_name):
-    if groups[group_name].detach_node_by_name(task.name) is not None:
-        changed[group_name] = True
-
-
-def _add_task_to_asleep():
-
-
-def _remove_task_from_asleep(task):
-    if asleep.detach_node(task.name) is not None:
-        changed["asleep"] = True
-
-
-def save_changes():
-    """Saves all changes and progress made to all tasks as well as programme configurations."""
-    for group_name, group in groups.values():
-        if changed.pop(group_name, None) is not None:
-            _push_file(group_name, group)
-    if changed.pop("asleep", None) is not None:
-        _push_file("asleep", asleep)
-    if changed.pop("config", None) is not None:
-        _push_file("config", config)
-
-    for frequency in list(changed.keys()):      # The list is there since we are changed the dict while iterating
-        _push_file(frequency, in_memory[frequency])
-
-def exit_without_saving():
-    """Properly exits the programme WITHOUT saving the changes made to the tasks and programme configurations."""
-
-
-def exit_programme():
-    """Properly saves all changes made and exits the programme."""
-    save_changes()
-    exit_without_saving()
-
-def _catch_close_command():
-    """Not meant for the end user. Catches the programme being closed in an improper way and automatically
-    triggers proper close sequence."""
-
-
-def _viable_frequency(frequency):
-    """Not meant for the end user. Checks whether the user typed in a valid frequency. If so,
-    formats it to the programme's needs."""
-    frequency = frequency.casefold()
-    if frequency in ordinary or frequency in week or frequency in seasons:
-        return frequency
-
-    # It isn't in the above, so it would have to be a date. If it isn't, the following raises a ValueError.
-    if len(frequency) != 5:
-        raise ValueError("The frequency is too short/long.")
-    if american_dates:
-        frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
-    else:
-        frequency = date(2020, int(frequency[3:5]), int(frequency[0:2]))
-    return frequency
-
-
-def _viable_status(status):
-    """Not meant for the end user. Checks whether the user typed in a valid status. If so,
-        formats it to the programme's needs."""
-    status = status.casefold()
-    if status in {"due", "overdue", "asleep", "finished"}:
-        return status
-    return None
-
-def _create_task_input_viability(frequency, status):
-
-    # Checks the viability of the frequency
-    try:
-        frequency = _viable_frequency(frequency)
-    except ValueError as ve:
-        print(f'Error: The inputted frequency is invalid -- reason: {ve}. Task was NOT created.')
-        return None, None
-
-    # Checks the viability of the status
-    status = _viable_status(status)
-    if status is None:
-        print("Error: The inputted status is invalid. Task was NOT created.")
-        return None, None
-
-    return frequency, status
+def _make_into_sleeper(node, until):
+    """Ascribes the node an until (= wake-up date), then adds it to the 'asleep' DLTL."""
+    node.until = until
+    asleep.add_sleeper(node)
+    changed["asleep"] = True
 
 
 def _convert_to_date(days):
@@ -204,7 +127,75 @@ def _set_until_date():
     return until
 
 
-def create_task(name, frequency="once", task_description="", status="due"):  # Maybe special treatment for "once" tasks?
+def _viable_frequency(frequency):
+    """Not meant for the end user. Checks whether the user typed in a valid frequency. If so,
+    formats it to the programme's needs."""
+    frequency = frequency.casefold()
+    if frequency in ordinary or frequency in week or frequency in seasons:
+        return frequency
+
+    # It isn't in the above, so it would have to be a date. If it isn't, the following raises a ValueError.
+    if len(frequency) != 5:
+        raise ValueError("The frequency is too short/long.")
+    if american_dates:
+        frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
+    else:
+        frequency = date(2020, int(frequency[3:5]), int(frequency[0:2]))
+    return frequency
+
+
+def _viable_status(status):
+    """Not meant for the end user. Checks whether the user typed in a valid status. If so,
+        formats it to the programme's needs."""
+    status = status.casefold()
+    if status in statuses:
+        return status
+    return None
+
+
+def save_changes():
+    """Saves all changes and progress made to all tasks as well as programme configurations."""
+    for name, status_list in statuses.values():
+        if changed.pop(name, None) is not None:
+            _push_file(name, status_list)
+    if changed.pop("config", None) is not None:
+        _push_file("config", config)
+
+    for frequency in list(changed.keys()):      # The list is there since we are changed the dict while iterating
+        _push_file(frequency, in_memory[frequency])
+
+def exit_without_saving():
+    """Properly exits the programme WITHOUT saving the changes made to the tasks and programme configurations."""
+
+
+def exit_programme():
+    """Properly saves all changes made and exits the programme."""
+    save_changes()
+    exit_without_saving()
+
+def _catch_close_command():
+    """Not meant for the end user. Catches the programme being closed in an improper way and automatically
+    triggers proper close sequence."""
+
+def _create_task_input_viability(frequency, status):
+
+    # Checks the viability of the frequency
+    try:
+        frequency = _viable_frequency(frequency)
+    except ValueError as ve:
+        print(f'Error: The inputted frequency is invalid -- reason: {ve}. Task was NOT created.')
+        return None, None
+
+    # Checks the viability of the status
+    status = _viable_status(status)
+    if status is None:
+        print("Error: The inputted status is invalid. Task was NOT created.")
+        return None, None
+
+    return frequency, status
+
+
+def create_task(name, frequency="once", task_description="", status="due"):
     # Checks whether the user inputs are of the valid form
     frequency, status = _create_task_input_viability(frequency, status)
     if frequency is None:
@@ -214,7 +205,6 @@ def create_task(name, frequency="once", task_description="", status="due"):  # M
     if frequency == "once" and status == "finished":
         print("Error: Cannot create a 'once' task that is already 'finished'. Task was NOT created.")
         return None
-
     temp = _pull_file(frequency)
     if name in temp.glossary:
         print(f'Error: Task with name {name} and frequency {frequency} already exists. Task was NOT created.')
@@ -222,29 +212,19 @@ def create_task(name, frequency="once", task_description="", status="due"):  # M
 
     # Adds the task to the appropriate DLTLGroup
     until = None
-    if status == "due":
-        due.append_node(dltl.TaskNode(name, frequency, task_description, status), ordering_key)
-        changed["due"] = True
-    elif status == "overdue":
-        overdue.append_node(dltl.TaskNode(name, frequency, task_description, status), ordering_key)
-        changed["overdue"] = True
-    elif status == "finished":
-        finished_today.append_node(dltl.TaskNode(name, frequency, task_description, status), ordering_key)
-        changed["finished_today"] = True
-    else:
+    status_copy = dltl.TaskNode(name, frequency, task_description, status)
+    if status == "asleep":
         until = _set_until_date()
-        asleep.add_sleeper(dltl.TaskNode(name, frequency, task_description, status, until))
-        changed["asleep"] = True
+        _make_into_sleeper(status_copy, until)
+    else:
+        _add_node_to_group(status_copy, status)
 
     # Adds the task to the frequency DLTL
-    temp.append_node(dltl.TaskNode(name, frequency, task_description, status))
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
+    _add_node_to_dltl(dltl.TaskNode(name, frequency, task_description, status, until), temp)
     print(f'Task "{name}" was successfully created!')
     return True     # Just to signal successful completion
 
-def _fetch_position_from_ld(position):
+def _fetch_position_from_ld(position: int):
     """Not meant for the end user. Fetches a task node by its position in the last_displayed list."""
     if position < 1 or position > len(last_displayed):
         print("Error: Invalid position.")
@@ -254,14 +234,12 @@ def _fetch_position_from_ld(position):
 def _fetch_name_from_ld(name):
     """Not meant for the end user. Fetches a task node (that was in the last_displayed list) by its name."""
 
-    # There are only 3 options
-    if ld_origin in groups:
-        return groups[ld_origin].fetch_node(name)
-    if ld_origin == "asleep":
-        return asleep.fetch_node(name)
+    # There are only 2 options
+    if ld_origin in statuses:
+        temp = statuses[ld_origin]
     else:
         temp = _pull_file(ld_origin)
-        return temp.fetch_node(name)
+    return temp.fetch_node(name)
 
 def _fetch_from_ld(task):
     """Not meant for the end user. Fetches a task node that was in the last_displayed list."""
@@ -270,64 +248,173 @@ def _fetch_from_ld(task):
     return _fetch_name_from_ld(task)
 
 
-def delete_task(task):
-    """Deletes a task and removes it from all lists."""
+def _fetch_both_copies(task):
     task = _fetch_from_ld(task)
     if task is None:
+        return None, None
+    if ld_origin in statuses:
+        status_copy = task
+        frequency_copy = _pull_file(task.frequency).fetch_node(task.name)
+    else:
+        status_copy = statuses[task.status].glossary.get(task.name)  # Note that this could return None for "finished"
+        frequency_copy = task
+    return status_copy, frequency_copy
+
+
+def delete_task(task):
+    """Deletes a task and removes it from all lists."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:      # The status copy may not exist if status == "finished"
         return None
 
-    # Removes the task from the appropriate DLTLGroup (if it is in one). This isn't the most efficient, but it is
-    # the most readable
-    if task.status == "asleep":
-        asleep.detach_node(task.name)
+    freq = _pull_file(frequency_copy.frequency)
+    freq.detach_node(frequency_copy)
+    _update_dltl(frequency_copy.frequency, freq)
+
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.detach_node(status_copy)
+        changed[status_copy.status] = True
+
+
+def change_name(task, new_name):
+    """Changes the name of the specified task."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+
+    # First the frequency copy
+    freq = _pull_file(frequency_copy.frequency)
+    if new_name in freq.glossary:
+        print(f'Error: Task with name {new_name} and frequency {frequency_copy.frequency} already exists. Name change was aborted.')
+        return False
+    freq.rename_node(frequency_copy, new_name)
+    _update_dltl(frequency_copy.frequency, freq)
+
+    # Then the status copy
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.rename_node(status_copy, new_name)
+        changed[status_copy.status] = True
+
+def _change_freq_ask_user():
+    if (response := input("Warning: Changing the frequency of a 'finished' task to 'once' will remove the task."
+                          "Do you wish to proceed? (Y/N):")) == "Y":
+        return True
+    elif response == "N":
+        return False
     else:
-        for group in groups.values():
-            group.detach_node_by_name(task.name)
-
-    # Removes the task from the frequency DLTL
-    temp = _pull_file(task.frequency)
-    temp.detach_node_by_name(task.name)
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
----------------------------------
+        print("Did not understand answer. Please try again.")
+        return _change_freq_ask_user()
 
 
-def change_frequency(task, new_frequency):  # Add the case, where he changes it to once (and it's finished)
+def change_frequency(task, new_frequency):
     """Changes the frequency (trigger condition) of the specified task."""
-    task = _target_task(task)
-    old_frequency = task["frequency"]
-    task["frequency"] = new_frequency
+    if new_frequency == "once" and task.status == "finished":
+        if _change_freq_ask_user():
+            delete_task(task)
+            return True
+        else:
+            return False
 
-    temp = _pull_file(old_frequency)
-    temp.detach_node_by_name(task["name"])
-    in_memory[old_frequency] = temp
-    changed[old_frequency] = True
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+    name, old_frequency = frequency_copy.name, frequency_copy.frequency
 
-    temp = _pull_file(new_frequency)
-    temp.append_task(task["name"])
-    in_memory[new_frequency] = temp
-    changed[new_frequency] = True
+    # First the frequency copy
+    freq2 = _pull_file(new_frequency)
+    if name in freq2.glossary:
+        print(
+            f'Error: Task with name {name} and frequency {new_frequency} already exists.'
+            f'Frequency change was aborted.')
+        return False
 
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-            _add_to_special(task, collection)
+    freq1 = _pull_file(old_frequency)
+    freq1.detach_node(frequency_copy)
+    frequency_copy.frequency = new_frequency
+    freq2.append_node(frequency_copy)
+    _update_dltl(old_frequency, freq1)
+    _update_dltl(new_frequency, freq2)
+
+    # Then the status copy
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.change_frequency(status_copy, new_frequency, config["ordering_key"])
+        changed[status_copy.status] = True
 
 
 def change_description(task, new_description):
     """Changes the description of the specified task."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+
+    # First the frequency copy
+    freq = _pull_file(frequency_copy.frequency)
+    freq.change_description(frequency_copy, new_description)
+    _update_dltl(frequency_copy.frequency, freq)
+
+    # Then the status copy
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.change_description(status_copy, new_description)
+        changed[status_copy.status] = True
+
+
+def renew(task):
+    """Sets a task's status to 'due' and ads it to the agenda."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+    elif frequency_copy.status == "due":
+        print("Error: The given task is already due. Aborting process.")
+        return False
+
+    # First the frequency copy
+    freq = _pull_file(frequency_copy.frequency)
+    freq.change_status(frequency_copy, "due")
+    _update_dltl(frequency_copy.frequency, freq)
+
+    # Then the status copy
+    if status_copy is not None:
+        temp = statuses[status_copy.status]
+        temp.detach_node(status_copy)
+        changed[status_copy.status] = True
+    due.append_node(dltl.TaskNode(frequency_copy.name, frequency_copy.frequency,  frequency_copy.description,
+                                  "due"), config["ordering_key"])
+    changed["due"] = True
+
+
+def mark_as_overdue(task):
+    """Sets a task's status to 'overdue', marking its completion as high priority."""
+    status_copy, frequency_copy = _fetch_both_copies(task)
+    if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+    elif frequency_copy.status == "overdue":
+        print("Error: The given task is already overdue. Aborting process.")
+        return False
+
+
+
+
+def mark_as_overdue(task):
+    """Sets a task's status to 'overdue', marking its completion as high priority."""
     task = _target_task(task)
     frequency = task["frequency"]
 
     temp = _pull_file(frequency)
-    temp.fetch_task(task["name"])["description"] = new_description
+    task = temp.fetch_task(task["name"])
+    task["status"] = "overdue"
     in_memory[frequency] = temp
     changed[frequency] = True
 
     for collection in special:
         if task["name"] in collection["glossary"]:
-            collection["glossary"][task["name"]].task["description"] = new_description
+            _remove_from_special(task, collection)
+    _add_to_special(task, overdue)
+---------------------------------
+
 
 
 def description(task):
@@ -362,23 +449,6 @@ def set_asleep(task):
     _add_to_special(task, asleep)
 
 
-def renew(task):
-    """Sets a task's status to 'due' and ads it to the agenda."""
-    task = _target_task(task)
-    frequency = task["frequency"]
-
-    temp = _pull_file(frequency)
-    task = temp.fetch_task(task["name"])
-    task["status"] = "due"
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-    _add_to_special(task, due)
-
-
 def finish(task):
     """Sets a task's status to 'finished', marking its completion and taking it off the agenda."""
     task = _target_task(task)
@@ -394,23 +464,6 @@ def finish(task):
         if task["name"] in collection["glossary"]:
             _remove_from_special(task, collection)
     _add_to_special(task, finished_today)
-
-
-def mark_as_overdue(task):
-    """Sets a task's status to 'overdue', marking its completion as high priority."""
-    task = _target_task(task)
-    frequency = task["frequency"]
-
-    temp = _pull_file(frequency)
-    task = temp.fetch_task(task["name"])
-    task["status"] = "overdue"
-    in_memory[frequency] = temp
-    changed[frequency] = True
-
-    for collection in special:
-        if task["name"] in collection["glossary"]:
-            _remove_from_special(task, collection)
-    _add_to_special(task, overdue)
 
 
 def change_name(task, new_name):
