@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 today = date.today()
 
 
@@ -237,7 +237,7 @@ class SleeperDLTL(DLTL):
         self._add_node_to_glossary(node)
 
     def wake_up_head(self):
-        """Wakes up the head of the DLTL (removes the node and passes it to the caller)."""
+        """Wakes up the head of the DLTL (removes the node, sets status to 'due' and passes it to the caller)."""
         waker = self.head
         if waker is None:
             return None     # This should never trigger
@@ -246,14 +246,18 @@ class SleeperDLTL(DLTL):
             self.head.prev = None
         waker.next = None
 
+        waker.status = "due"
+        waker.until = None
         self._remove_node_from_glossary(waker)
         return waker
 
-    def wake_up_sleepers(self, end_date, target_dltl):
+    def wake_up_sleepers(self, end_date, target):
         """Wakes up all sleepers whose wake-up ('until') date is before the end_date (included)
-        and appends them to the target DLTL."""
+        and appends them to the target DLTL/DLTLGroup."""
         while self.head is not None and self.head.until <= end_date:
-            target_dltl.append_node(self.wake_up_head())
+            if self.head.name in target.glossary:
+                self.head.name = f'{self.head.name} -- name collision prevention triggered {str(datetime.now())}'
+            target.append_node(self.wake_up_head())
         if self.head is None:   # The list emptied completely
             self.tail = None
 
@@ -388,7 +392,7 @@ class DLTLGroup:
         if node is None:
             return None
         self.detach_node(node)
-        return True
+        return node
 
     def move_across_group(self, node, new_dltl, ordering_key: dict):
         """Moves the given node to the specified DLTL in the group (which it creates if necessary)."""

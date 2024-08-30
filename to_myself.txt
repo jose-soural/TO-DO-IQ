@@ -1,16 +1,7 @@
-
-
 Stuff interacting with last_displayed needs an update. (In the end I'm gonna have to handle it differently)
 -- need to add proper behaviour for last_displayed == unsupported, to_do
 --- would be good = refactor the "evaluates last_displayed utility to myself" into its own function
 
--- need to doublecheck all areas where I am working with finished/finished_today
-
 --- need to add validation checks to all user_input functions (mainly I forgot with frequency and status)
 --- would be good to ctrl + f the input() command and always caseform it
-
-((Just a note: Currently, when I move a task from "asleep", I don't empty it's until attribute. This shouldn't cause any problems,
-but it is still technically a bug))
-
-
 

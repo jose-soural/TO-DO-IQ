@@ -1,11 +1,9 @@
 import pickle
-from os import path
-from os import remove
+from os import path, remove
 from datetime import date, datetime, timedelta
-import dltl
+import dltl     # Custom module
 
 today = date.today()
-now = datetime.now()
 empty_list = dltl.DLTL()
 
 
@@ -20,8 +18,8 @@ def unpickle_file(file_name):
 
 
 config = unpickle_file("config")
-what_i_want_to_have_in_config = {"last_refresh": date(2024, 8, 20),
-                                 "ordering_key": {"once": 1, "daily": 2}, "american dates": False}
+what_i_want_to_have_in_config = {"last_refresh": date(2024, 8, 20), "auto_refresh": False,
+                                 "ordering_key": {"once": 1, "daily": 2}}
 # specific dates should go in the front I guess
 
 due = unpickle_file("due")
@@ -32,9 +30,11 @@ groups = {"due": due, "overdue": overdue, "finished_today": finished_today}
 statuses = {"due": due, "overdue": overdue, "asleep": asleep, "finished": finished_today}
 
 ordinary = {"once", "daily", "weekly", "monthly", "seasonally", "yearly"}
-week = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-seasons = {"winter", "spring", "summer", "fall"}
-counting = unpickle_file("counting")
+week = {1: "monday", 2: "tuesday", 3: "wednesday", 4: "thursday", 5: "friday", 6: "saturday", 7: "sunday"}
+months = {1: 'january', 2: 'february', 3: 'march', 4: 'april', 5: 'may', 6: 'june', 7: 'july', 8: 'august',
+          9: 'september', 10: 'october', 11: 'november', 12: 'december'}
+seasons = {1: "winter", 2:  "spring", 3: "summer", 4: "fall"}
+# counting = unpickle_file("counting")
 dates = unpickle_file("dates")
 
 in_memory = {}
@@ -71,7 +71,7 @@ def _delete_file(frequency):
 
 def _push_file(frequency, contents):  # might rewrite later to automatically take contents from in_memory,
     """Not meant for the end user. Pushes the current state of the given task list into the corresponding file."""
-    if contents == empty_list:  # Protects from saving an empty task list
+    if contents == empty_list:  # Protects from saving an empty task list, but only for normal DLTLs
         _delete_file(frequency)
     else:
         pickle_into_file(contents, frequency)
@@ -79,22 +79,24 @@ def _push_file(frequency, contents):  # might rewrite later to automatically tak
 
 
 def _update_dltl(target_name, contents):
+    """Not meant for the end user. Updates the in memory copy of the DLTL and logs that it has been altered
+    (= marks that it should be saved onto a file later)."""
     in_memory[target_name] = contents
     changed[target_name] = True
 
 
-def _add_node_to_dltl(node, target_dltl):       # Might refactor to include more in the future, we'll see by the uses
+def _add_node_to_dltl(node, target_dltl):
     target_dltl.append_node(node)
     _update_dltl(node.frequency, target_dltl)
 
 
-def _add_node_to_group(node, group_name):
-    groups[group_name].append_node(node, config["ordering_key"])
-    changed[group_name] = True
+def _add_node_to_group(node, group_id):
+    statuses[group_id].append_node(node, config["ordering_key"])
+    changed[group_id] = True
 
 
 def _make_into_sleeper(node, until):
-    """Ascribes the node an until (= wake-up date), then adds it to the 'asleep' DLTL."""
+    """Not meant for the end user. Ascribes the node an until (= wake-up date), then adds it to the 'asleep' DLTL."""
     node.until = until
     asleep.add_sleeper(node)
     changed["asleep"] = True
@@ -131,16 +133,13 @@ def _viable_frequency(frequency):
     """Not meant for the end user. Checks whether the user typed in a valid frequency. If so,
     formats it to the programme's needs."""
     frequency = frequency.casefold()
-    if frequency in ordinary or frequency in week or frequency in seasons:
+    if frequency in ordinary or frequency in week.values() or frequency in months.values() or frequency in seasons.values():
         return frequency
 
     # It isn't in the above, so it would have to be a date. If it isn't, the following raises a ValueError.
     if len(frequency) != 5:
         raise ValueError("The frequency is too short/long.")
-    if config["american_dates"]:
-        frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
-    else:
-        frequency = date(2020, int(frequency[3:5]), int(frequency[0:2]))
+    frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
     return frequency
 
 
@@ -153,7 +152,7 @@ def _viable_status(status):
     return None
 
 
-def save_changes():
+def save_changes(namespace):        # The namespace is only to prevent "expected 0 arguments received 1 error"
     """Saves all changes and progress made to all tasks as well as programme configurations."""
     for name, status_list in statuses.values():
         if changed.pop(name, None) is not None:
@@ -165,22 +164,23 @@ def save_changes():
         _push_file(frequency, in_memory[frequency])
 
 
-def exit_without_saving():
+def exit_without_saving(namespace):
     """Properly exits the programme WITHOUT saving the changes made to the tasks and programme configurations."""
 
 
-def exit_programme():
+def exit_programme(namespace):
     """Properly saves all changes made and exits the programme."""
-    save_changes()
-    exit_without_saving()
+    save_changes(namespace)
+    exit_without_saving(namespace)
 
 
-def _catch_close_command():
-    """Not meant for the end user. Catches the programme being closed in an improper way and automatically
-    triggers proper close sequence."""
+# def _catch_close_command():
+#    """Not meant for the end user. Catches the programme being closed in an improper way and automatically
+#    triggers proper close sequence."""
 
 
 def _create_task_input_viability(frequency, status):
+    """Not meant for the end user. Checks whether the user inputted a frequency and status valid for task creation."""
 
     # Checks the viability of the frequency
     try:
@@ -199,6 +199,8 @@ def _create_task_input_viability(frequency, status):
 
 
 def create_task(name, frequency="once", task_description="", status="due"):
+    """Creates a task with the given name, frequency (= trigger condition), description and status & adds it
+    to appropriate lists."""
     # Checks whether the user inputs are of the valid form
     frequency, status = _create_task_input_viability(frequency, status)
     if frequency is None:
@@ -211,6 +213,9 @@ def create_task(name, frequency="once", task_description="", status="due"):
     temp = _pull_file(frequency)
     if name in temp.glossary:
         print(f'Error: Task with name {name} and frequency {frequency} already exists. Task was NOT created.')
+        return None
+    if name in statuses[status].glossary:
+        print(f'Error: Task with name {name} and status {status} already exists. Task was NOT created.')
         return None
 
     # Adds the task to the appropriate DLTLGroup
@@ -226,6 +231,30 @@ def create_task(name, frequency="once", task_description="", status="due"):
     _add_node_to_dltl(dltl.TaskNode(name, frequency, task_description, status, until), temp)
     print(f'Task "{name}" was successfully created!')
     return True     # Just to signal successful completion
+
+
+def _create_task_argparse(namespace):
+    """Not meant for the end user. Handles the passing of the arguments received from the user by argparse onto
+    the create_task() function. Purely for refactoring purposes"""
+    if create_task(namespace.task_name, namespace.frequency, namespace.DESCRIPTION, namespace.status) is None:
+        return None
+
+
+def list_valid_frequencies(namespace):
+    """Displays a list of all valid task frequencies (= trigger conditions)."""
+    print("Any date in the format 'MM-DD' (M = month, D = day). -- The task will trigger once every year on that date.")
+    print()
+    print("We also support the following 'once every ____' frequencies:")
+    for freq in seasons.values():
+        print(f"'{freq}'", end=", ")
+    for freq in months.values():
+        print(f"'{freq}'", end=", ")
+    for freq in week.values():
+        print(f"'{freq}'", end=", ")
+    print()
+    print("Last but not least, the following are also supported:")
+    for freq in ordinary:
+        print(f"'{freq}'", end=", ")
 
 
 def _fetch_position_from_ld(position: int):
@@ -331,7 +360,6 @@ def change_frequency(task, new_frequency):
     name, old_frequency = frequency_copy.name, frequency_copy.frequency
 
     # First the frequency copy
-    freq2 = _pull_file(new_frequency)
     if name in freq2.glossary:
         print(
             f'Error: Task with name {name} and frequency {new_frequency} already exists.'
@@ -375,20 +403,29 @@ def _change_status(task, new_status):
     status_copy, frequency_copy = _fetch_both_copies(task)
     if frequency_copy is None:  # The status copy may not exist if status == "finished"
         return False
-    elif frequency_copy.status == new_status:
+
+    name, old_status = frequency_copy.name, frequency_copy.status
+    if old_status == new_status:
         print(f'Error: The given task is already {new_status}. Aborting process.')
+        return False
+    if name in statuses[new_status].glossary:
+        print(
+            f'Error: Task with name {name} and status {new_status} already exists.'
+            f'Aborting process.')
         return False
 
     # First the frequency copy
     freq = _pull_file(frequency_copy.frequency)
     freq.change_status(frequency_copy, new_status)
+    frequency_copy.until = None     # It cannot change into a sleeper, so in case it is changing from being one
     _update_dltl(frequency_copy.frequency, freq)
 
     # Then the status copy
     if status_copy is not None:
-        temp = statuses[status_copy.status]
+        temp = statuses[old_status]
         temp.detach_node(status_copy)
-        changed[status_copy.status] = True
+        changed[old_status] = True
+    status_copy.until = None
     statuses[new_status].append_node(status_copy, config["ordering_key"])
     changed[new_status] = True
 
@@ -398,6 +435,12 @@ def set_asleep(task):
     Note: this makes it ignore its normal trigger condition."""
     status_copy, frequency_copy = _fetch_both_copies(task)
     if frequency_copy is None:  # The status copy may not exist if status == "finished"
+        return False
+
+    if frequency_copy.name in asleep.glossary:
+        print(
+            f'Error: Task with name {name} and status "asleep" already exists.'
+            f'Aborting process.')
         return False
 
     status_copy.until = frequency_copy.until = _set_until_date()
@@ -427,8 +470,15 @@ def mark_as_overdue(task):
 
 
 def finish(task):
-    """Sets a task's status to 'finished', marking its completion and taking it off the agenda."""
-    _change_status(task, "finished")
+    """Sets a task's status to 'finished', marking its completion and taking it off the agenda. NOTE: finishing
+    a 'once' task will automatically remove it."""
+    node = _fetch_from_ld(task)
+    if node is None:
+        return None
+    if node.frequency == "once":
+        delete_task(task)
+    else:
+        _change_status(task, "finished")
 
 
 def _prepare_description(task_description):
@@ -487,19 +537,23 @@ def display_all(finished=False):
         print(frequency)
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
-    for frequency in week:
+    for frequency in week.values():
         print(frequency)
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
-    for frequency in seasons:
+    for frequency in months.values():
         print(frequency)
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
-    for frequency in counting:
+    for frequency in seasons.values():
         print(frequency)
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
-    for frequency in dates:
+    # for frequency in counting:
+    #    print(frequency)
+    #   print()
+    #  i = _pull_file(frequency).display_alongside_others(finished, i)
+    for frequency in dates.values():
         print(frequency)
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
@@ -515,7 +569,7 @@ def display_all(finished=False):
 
 
 def display_list(frequency, status):
-    """Actually is for the user after all."""
+    """Displays all tasks (their names) of the specified frequency and status."""
     global last_displayed, ld_origin
 
     if frequency == "all":
@@ -533,14 +587,24 @@ def display_list(frequency, status):
 
         # All tasks from a DLTL group
         else:
-            last_displayed = groups[status].display_task_names()
+            if status == "finished_today":
+                status = "finished"
+            last_displayed = statuses[status].display_task_names()
             ld_origin = status
 
     elif status == "all":
         last_displayed = _pull_file(frequency).display_task_names()
         ld_origin = frequency
+    elif status == "asleep":
+        last_displayed = _pull_file(frequency).display_task_names_conditional("asleep")
+        ld_origin = frequency
+    elif status == "finished":
+        last_displayed = _pull_file(frequency).display_task_names_conditional("finished")
+        ld_origin = frequency
     else:
-        target = status[status].members[frequency]
+        if status == "finished_today":
+            status = "finished"
+        target = statuses[status].members[frequency]
         last_displayed = target.display_task_names([None] * target.size)
         ld_origin = status
 
@@ -589,3 +653,114 @@ def asleep():
 def finished_today():
     """Displays all tasks which were finished today."""
     display_list("all", "finished_today")
+
+
+def _refresh_frequency(frequency):
+    temp = _pull_file(frequency)
+    current = temp.head
+    while current is not None:
+        if current.status == "due":
+            node = due.detach_node_by_name(current.name)
+            node.status = current.status = "overdue"
+            if current.name in overdue.glossary:
+                node.name = current.name = f'{current.name} -- name collision prevention triggered {str(datetime.now())}'
+            overdue.append_node(node, config["ordering_key"])
+        elif current.status == "finished":
+            if current.name in due.glossary:
+                current.name = f'{current.name} -- name collision prevention triggered {str(datetime.now())}'
+            due.append_node(dltl.TaskNode(current.name, current.frequency, current.description, "due"),
+                            config["ordering_key"])
+            current.status = "due"
+        current = current.next
+    _update_dltl(frequency, temp)
+    changed["due"] = changed["overdue"] = True
+
+
+def _get_season(date_object):
+    """Returns the season of the given date."""
+
+    month, day = date_object.month, date_object.day
+
+    # Determine the season based on month and day
+    if month in {1, 2}:
+        return 1        # For reasons down the line, we will differentiate between first and second winter
+    if month in {3, 4, 5}:
+        return 2        # Spring
+    elif month in {6, 7, 8}:
+        return 3
+    elif month in {9, 10, 11}:
+        return 4
+    else:
+        return 5
+
+
+def refresh_to_do():
+    """Updates the to-do list. Based on the system date, it wakes up sleepers, adds due tasks and potentially
+    marks tasks that are overdue."""
+
+    # Check if there is a need to refresh
+    if config["last_refresh"] == today:
+        return
+
+    global finished_today
+    refresh_year, refresh_week, refresh_weekday = config["last_refresh"].isocalendar()
+    refresh_month, refresh_season = config["last_refresh"].month, _get_season(config["last_refresh"])
+    today_year, today_week, today_weekday = today.isocalendar()
+    today_month, today_season = today.month, _get_season(today)
+
+    if today_year != refresh_year:
+        _refresh_frequency("yearly")
+        for i in range(refresh_season + 1, 6):
+            _refresh_frequency(seasons[i // 4])     # Refresh all season up to that year's second winter included
+        for i in range(1, min(today_season, refresh_season) + 1):
+            _refresh_frequency(seasons[i])
+
+        if not (refresh_season == 5 and today_season == 1):
+            _refresh_frequency("seasonally")
+
+        _refresh_frequency("monthly")
+        for i in range(refresh_month + 1, 13):
+            _refresh_frequency(months[i])
+        for i in range(1, min(today_month, refresh_month) + 1):
+            _refresh_frequency(months[i])
+
+        _refresh_frequency("weekly")
+        for i in range(refresh_weekday + 1, 8):
+            _refresh_frequency(week[i])
+        for i in range(1, min(today_weekday, refresh_weekday) + 1):
+            _refresh_frequency(week[i])
+
+    # The year is the same
+    else:
+        if refresh_season != today_season:
+            _refresh_frequency("seasonally")
+            for i in range(refresh_season + 1, today_season + 1):
+                _refresh_frequency(seasons[i // 4])       # A trick using the differentiation of first and second winter
+
+        if refresh_month != today_month:
+            _refresh_frequency("monthly")
+            for i in range(refresh_month + 1, today_month + 1):
+                _refresh_frequency(months[i])
+
+        if refresh_week != today_week:
+            _refresh_frequency("weekly")
+            for i in range(refresh_weekday + 1, 8):
+                _refresh_frequency(week[i])
+            for i in range(1, min(today_weekday, refresh_weekday) + 1):
+                _refresh_frequency(week[i])
+
+        else:
+            for i in range(refresh_weekday + 1, today_weekday + 1):
+                _refresh_frequency(week[i])
+
+        # The following always triggers
+        finished_today = dltl.DLTLGroup()       # Empties it
+        _refresh_frequency("daily")
+        asleep.wake_up_sleepers(today, due)
+        config["last_refresh"] = today
+        changed["asleep"] = True        # Might not be the case, but it doesn't matter, and it is neater this way
+        changed["config"] = changed["finished"] = True
+
+
+def change_config(namespace):
+    todo
