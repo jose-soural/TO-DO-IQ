@@ -1,3 +1,5 @@
 Would be nice: unify the "if error happens I return this" to something (Preferred: False)
 Would be nice: Technically I should disallow tasks to have integer names. But bruh, that's on you if you do that
 Would be nice: Replace the recursion loops for user input with less hazardous "while True" loops -- ex. catch_command
+
+When the position in ld shifts, I should disable ld.

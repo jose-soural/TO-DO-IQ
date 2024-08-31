@@ -19,7 +19,7 @@ def unpickle_file(file_name, failsafe):
     return failsafe
 
 
-config = unpickle_file("config", {"last_refresh": date(2024, 8, 20),
+config = unpickle_file("config", {"last_refresh": date.today(),
                                   "auto_refresh": False,
                                   "ordering_key": {"once": 1, "daily": 2}})
 # specific dates should go in the front I guess
@@ -51,7 +51,7 @@ def _pull_file(frequency):
         temp = in_memory[frequency]
     else:
         if path.exists(f'{frequency}.pkl'):
-            temp = unpickle_file(f'{frequency}.pkl', None)
+            temp = unpickle_file(frequency, None)
         else:
             temp = dltl.DLTL()
             # If we are creating a date entry, we have to add it to the list
@@ -137,6 +137,8 @@ def save_changes(namespace):        # The namespace is only to prevent "expected
 
     for frequency in list(changed.keys()):      # The list is there since we are changed the dict while iterating
         _push_file(frequency, in_memory[frequency])
+    print("Changes successfully saved!")
+    print()
 
 
 def exit_without_saving(namespace):
@@ -181,9 +183,12 @@ def list_valid_frequencies(namespace):
     for freq in week.values():
         print(f"'{freq}'", end=", ")
     print()
+    print()
     print("Last but not least, the following are also supported:")
     for freq in ordinary:
         print(f"'{freq}'", end=", ")
+    print()
+    print()
 
 
 def _validify_frequency(frequency):
@@ -248,13 +253,15 @@ def create_task(name, frequency="once", task_description="", status="due"):
     _update_dltl(frequency, temp)
 
     print(f'Task "{name}" was successfully created!')
+    print()
     return True     # Just to signal successful completion
 
 
 def create_task_argparse(namespace):
     """Not meant for the end user. Handles the passing of the arguments received from the user by argparse onto
     the create_task() function. Purely for refactoring purposes"""
-    if create_task(namespace.task_name, namespace.frequency, namespace.DESCRIPTION, namespace.status) is None:
+    namespace.description = ' '.join(namespace.description)
+    if create_task(namespace.task_name, namespace.frequency, namespace.description, namespace.status) is None:
         return None
 
 
@@ -289,6 +296,8 @@ def _fetch_from_ld(task):
         print("Error: The last displayed list is too broad and as such does not allow interaction with tasks. Please"
               "display a more specialized list to access specific tasks.")
         return None
+
+    task = ' '.join(task)       # From argparse we receive a list
     if task.isdigit():
         return _fetch_position_from_ld(int(task))
     return _fetch_name_from_ld(task)
@@ -306,6 +315,10 @@ def _fetch_both_copies(task):
         frequency_copy = task
     return status_copy, frequency_copy
 
+def _arglist_into_text(argparse_list):
+    """Not meant for the end user. Takes in a list of words created by argparse from user input and recreates the
+    text it was originally"""
+    return ' '.join(argparse_list)
 
 def delete_task(namespace):
     """Deletes a task and removes it from all lists."""
@@ -326,7 +339,7 @@ def delete_task(namespace):
 def change_name(namespace):
     """Changes the name of the specified task."""
     status_copy, frequency_copy = _fetch_both_copies(namespace.target_task)
-    new_name = namespace.NEW
+    new_name = namespace.new
     if frequency_copy is None:  # The status copy may not exist if status == "finished"
         return False
 
@@ -361,7 +374,7 @@ def change_frequency(namespace):
     """Changes the frequency (trigger condition) of the specified task."""
 
     # Checks whether the user inputted a valid frequency
-    new_frequency = _validify_frequency(namespace.NEW)
+    new_frequency = _validify_frequency(namespace.new)
     if new_frequency is None:
         return None
     elif new_frequency == "all":
@@ -409,7 +422,7 @@ def change_frequency(namespace):
 def change_description(namespace):
     """Changes the description of the specified task."""
     status_copy, frequency_copy = _fetch_both_copies(namespace.target_task)
-    new_description = namespace.NEW
+    new_description = ' '.join(namespace.new)
     if frequency_copy is None:  # The status copy may not exist if status == "finished"
         return False
 
@@ -503,7 +516,7 @@ def finish(namespace):
     if node is None:
         return None
     if node.frequency == "once":
-        delete_task(namespace.target_task)
+        delete_task(namespace)
     else:
         _change_status(namespace.target_task, "finished")
 
@@ -559,7 +572,7 @@ def display_all(namespace):
     if namespace is True or namespace is False:
         finished = namespace
     else:
-        finished = namespace.FINISHED
+        finished = namespace.finished
 
     global last_displayed, ld_origin
     last_displayed, ld_origin = None, "unsupported"
@@ -655,14 +668,14 @@ def to_do(namespace):
 
     initial_index = 1
     print("---- overdue ----")
-    print("")
+    print()
     for frequency in overdue.ordering:
         print(frequency, ":", sep="")
         last_displayed, initial_index = overdue.members[frequency].display_task_names(last_displayed, initial_index)
         print()
-    print("")
+    print()
     print("---- due ----")
-    print("")
+    print()
     for frequency in due.ordering:
         print(frequency, ":", sep="")
         last_displayed, initial_index = overdue.members[frequency].display_task_names(last_displayed, initial_index)
@@ -671,6 +684,9 @@ def to_do(namespace):
 
 
 def display_list_argparse(namespace):
+    display_list(namespace.frequency, namespace.status)
+
+def display_status_list(namespace):
     """Not meant for the end user. Receives a command from argparse and converts it into the appropriate call
     to the display_list() function."""
     if namespace.command == "due":
@@ -835,7 +851,7 @@ def refresh_to_do(namespace):
 
 
 def change_config(namespace):
-    if namespace.AUTO_REFRESH == "true":
+    if namespace.auto_refresh == "true":
         config["auto_refresh"] = True
     else:
         config["auto_refresh"] = False
@@ -866,4 +882,5 @@ def _start_anew():
         remove('dates.pkl')
     if path.exists('config.pkl'):
         remove('config.pkl')
+    print("Initialization successful. Boot up 'main.py' to begin.")
     exit_without_saving("yay")
