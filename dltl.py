@@ -1,5 +1,4 @@
 from datetime import date, datetime
-today = date.today()
 
 
 class TaskNode:
@@ -281,7 +280,7 @@ class SleeperDLTL(DLTL):
         current = self.head
         result = [None] * self.size
         for i in range(self.size):
-            print(f'{i+1})   {current.name}   awakens in {(current.until-today).days} days, on {current.until}.')
+            print(f'{i+1})   {current.name}   awakens in {(current.until-date.today()).days} days, on {current.until}.')
             result[i] = current
             i += 1
             current = current.next

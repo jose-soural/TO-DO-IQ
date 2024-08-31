@@ -1,7 +1,3 @@
-Stuff interacting with last_displayed needs an update. (In the end I'm gonna have to handle it differently)
--- need to add proper behaviour for last_displayed == unsupported, to_do
---- would be good = refactor the "evaluates last_displayed utility to myself" into its own function
-
---- need to add validation checks to all user_input functions (mainly I forgot with frequency and status)
---- would be good to ctrl + f the input() command and always caseform it
-
+Would be nice: unify the "if error happens I return this" to something (Preferred: False)
+Would be nice: Technically I should disallow tasks to have integer names. But bruh, that's on you if you do that
+Would be nice: Replace the recursion loops for user input with less hazardous "while True" loops -- ex. catch_command
