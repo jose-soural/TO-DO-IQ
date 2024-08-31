@@ -4,12 +4,25 @@ from functions import *
 
 # ================
 # "Monkey patching" the behaviour of --help in argparse to NOT exit the program after displaying help:
-class CustomHelpAction(argparse._HelpAction):
-    # Override the problematic method
+class CustomHelpAction(argparse.Action):
+
+    def __init__(self,
+                 option_strings,
+                 dest=argparse.SUPPRESS,
+                 default=argparse.SUPPRESS,
+                 help=None):
+        super(argparse._HelpAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help)
+
+    # Override the problematic method -- give it an error code we can catch.
     def __call__(self, parser, namespace, values, option_string=None):
         parser.print_help()
+        sys.exit(112)
         # parser.exit()
-        print("Help displayed. Continuing program execution.")
 
 
 argparse._HelpAction = CustomHelpAction
@@ -32,7 +45,7 @@ def make_description(word_list):
 entry_parser = argparse.ArgumentParser(prog="TO-DO-IQ",
                                        description="An intelligent TO-DO list, utilises the python argparse module. Supports a wide variety of task"
                                                    "frequencies and handles automatic renewing of tasks.",
-                                       epilog="----------\nHelp displayed. Continuing execution."
+                                       epilog="-----------------------------------------------------------"
                                        )
 # One subparser for each end-user function
 commands = entry_parser.add_subparsers(title="Available commands:", required=True, dest="command")
@@ -51,7 +64,7 @@ p_create.add_argument("task_name", type=make_name, help="The name of the task to
 p_create.add_argument("frequency", default="once", help="The frequency (trigger condition) of the task to be created. See or list_frequencies command for a list of all valid frequencies.")
 p_create.add_argument("--description", "-d", nargs="*", default="", type=make_description, help="A more detailed description of the task to be.")
 p_create.add_argument("status", type=casefold, choices=["due", "overdue", "asleep", "finished"], default="due", help="The starting status of the task to be.")
-p_create.set_defaults(func=_create_task_argparse)
+p_create.set_defaults(func=create_task_argparse)
 
 p_list_freq = commands.add_parser("list_frequencies", aliases=['lf'], help="Displays a list of all valid task frequencies (= trigger conditions).")
 p_list_freq.set_defaults(func=list_valid_frequencies)
@@ -75,7 +88,7 @@ p_redescr.add_argument("target_task", nargs="+", type=make_description, help="Th
 p_redescr.add_argument("--new", "-n", nargs="*", type=make_description, help="The new description for the task.")
 p_redescr.set_defaults(func=change_description)
 
-p_set_asleep = commands.add_parser("set_asleep", aliases=["sa", "asleep", "sleep"], help="Sets the task to 'sleep' making become due on a specific day. Note: this makes it ignore its normal trigger condition.")
+p_set_asleep = commands.add_parser("set_asleep", aliases=["sa", "put_to_sleep", "pts", "ps"], help="Sets the task to 'sleep' making become due on a specific day. Note: this makes it ignore its normal trigger condition.")
 p_set_asleep.add_argument("target_task", nargs="+", type=make_description, help="The task to be put to sleep. Can be its name or its index as listed in the last displayed list.")
 p_set_asleep.set_defaults(func=set_asleep)
 
@@ -109,16 +122,16 @@ p_disp_list.add_argument("status", type=casefold, choices=["due", "overdue", "as
 p_disp_list.set_defaults(func=display_list)
 
 p_disp_due = commands.add_parser("due", help="Displays all due tasks except tasks that are overdue.")
-p_disp_due.set_defaults(func=_display_list_argparse)
+p_disp_due.set_defaults(func=display_list_argparse)
 
 p_disp_overdue = commands.add_parser("overdue", help="Displays all overdue tasks.")
-p_disp_overdue.set_defaults(func=_display_list_argparse)
+p_disp_overdue.set_defaults(func=display_list_argparse)
 
 p_disp_asleep = commands.add_parser("asleep", help="Displays all tasks which are asleep.")
-p_disp_asleep.set_defaults(func=_display_list_argparse)
+p_disp_asleep.set_defaults(func=display_list_argparse)
 
 p_disp_ft = commands.add_parser("finished_today", aliases=["ft"], help="Displays all tasks which were finished today.")
-p_disp_ft.set_defaults(func=_display_list_argparse)
+p_disp_ft.set_defaults(func=display_list_argparse)
 
 p_to_do = commands.add_parser("to_do", aliases=["td", "todo", "to-do", "today"], help="Displays all tasks on today's agenda.")
 p_to_do.set_defaults(func=to_do)
@@ -133,23 +146,32 @@ p_config.set_defaults(func=change_config)
 
 
 def main():
-    print("Welcome to TO-DO-IQ! Type in a valid command to continue. Type --help for help.")
+    print("Welcome to TO-DO-IQ!")
     while True:
         try:
-            namespace = entry_parser.parse_args()
+            print("Type in a valid command to continue. Type --help for help.")
+            user_input = input().strip()
+            print(f"Raw input: {user_input}")  # Debug print
+            namespace = entry_parser.parse_args(user_input.split())
+            print(f"Parsed arguments: {namespace}")  # Debug print
             namespace.func(namespace)
-        except SystemExit() as e:
+        except SystemExit as e:
+            if e.code == 112:  # Help was displayed
+                print("Help displayed. Continuing program execution.")
+                continue
             if e.code == 2:
-                pass        # Argparse berated the user, we can continue
-            elif e.code == 0:       # The user wants to exit via the python built-in commands
-                _catch_close_command()
-            elif e.code == 42:       # Built in exit procedure
+                print("")
+                print("Exception was caught and handled.")
+                pass  # Argparse berated the user, we can continue
+            elif e.code == 0:  # The user wants to exit via the python built-in commands
+                catch_close_command()
+            elif e.code == 42:  # Built in exit procedure
                 print("Graceful shutdown successful. Until next time!")
                 break
-            else:                   # Something went horribly wrong
+            else:  # Something went horribly wrong
                 raise
         except (KeyboardInterrupt, EOFError):
-            _catch_close_command()
+            catch_close_command()
 
 
 if __name__ == "__main__":

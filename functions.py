@@ -150,7 +150,7 @@ def exit_programme(namespace):
     exit_without_saving(namespace)
 
 
-def _catch_close_command():
+def catch_close_command():
     """Not meant for the end user. Catches the programme being closed in an improper way and prompts them, asking them
     to initiate proper exit procedure."""
     print("Caught attempt to exit application.")
@@ -251,7 +251,7 @@ def create_task(name, frequency="once", task_description="", status="due"):
     return True     # Just to signal successful completion
 
 
-def _create_task_argparse(namespace):
+def create_task_argparse(namespace):
     """Not meant for the end user. Handles the passing of the arguments received from the user by argparse onto
     the create_task() function. Purely for refactoring purposes"""
     if create_task(namespace.task_name, namespace.frequency, namespace.DESCRIPTION, namespace.status) is None:
@@ -670,7 +670,7 @@ def to_do(namespace):
     print("And that is all.")
 
 
-def _display_list_argparse(namespace):
+def display_list_argparse(namespace):
     """Not meant for the end user. Receives a command from argparse and converts it into the appropriate call
     to the display_list() function."""
     if namespace.command == "due":
