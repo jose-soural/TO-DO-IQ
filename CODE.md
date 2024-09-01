@@ -12,7 +12,7 @@ It is purposefully designed to not depend on the end implementation of the later
 
 ## functions.py
 
-The body of the app. Houses the main functionality of the programme, takes care of the actual task managing. The inner workings the included functions and methods should be largely clear from the code itself and the provided docstrings.
+The body of the app. Houses the main functionality of the programme, takes care of the actual task managing. The inner workings of the included functions and methods should be largely clear from the code itself and the provided docstrings.
 
 The user cannot interact with this layer directly.
 
