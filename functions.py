@@ -230,6 +230,13 @@ def _validify_frequency(frequency):
     return frequency
 
 
+def _prepare_frequency(frequency):
+    """Not meant for the end user. Only serves to strip the year from date frequencies, for displaying."""
+    if isinstance(frequency, date):
+        frequency = f'{frequency.month}-{frequency.day}'
+    return frequency
+
+
 def create_task(name, frequency="once", task_description="", status="due"):
     """Creates a task with the given name, frequency (= trigger condition), description and status & adds it
     to appropriate lists."""
@@ -249,7 +256,8 @@ def create_task(name, frequency="once", task_description="", status="due"):
         return None
     temp = _pull_file(frequency)
     if name in temp.glossary:
-        print(f'Error: Task with name {name} and frequency {frequency} already exists. Task was NOT created.')
+        print(f'Error: Task with name {name} and frequency {_prepare_frequency(frequency)} already exists. '
+              f'Task was NOT created.')
         print()
         return None
     if name in statuses[status].glossary:
@@ -379,7 +387,7 @@ def change_name(namespace):
     # First the frequency copy
     freq = _pull_file(frequency_copy.frequency)
     if new_name in freq.glossary:
-        print(f'Error: Task with name {new_name} and frequency {frequency_copy.frequency}'
+        print(f'Error: Task with name {new_name} and frequency {_prepare_frequency(frequency_copy.frequency)}'
               f'already exists. Name change was aborted.')
         print()
         return False
@@ -445,7 +453,7 @@ def change_frequency(namespace):
     freq2 = _pull_file(new_frequency)
     if name in freq2.glossary:
         print(
-            f'Error: Task with name {name} and frequency {new_frequency} already exists.'
+            f'Error: Task with name {name} and frequency {_prepare_frequency(new_frequency)} already exists.'
             f'Frequency change was aborted.')
         print()
         return False
