@@ -342,7 +342,7 @@ class DLTLGroup:
 
     def delete_member(self, member_name):
         """Removes the specified DLTL from the group, deleting all the tasks in it."""
-        member = self.members.pop(member_name)
+        member = self.members.pop(member_name, None)
         if member is None:
             return None         # Do I want to raise an error? Or to say something?
 

@@ -74,7 +74,11 @@ def _delete_file(frequency):
 
     # If it was a date, remove it from the list of used dates
     if isinstance(frequency, date):
+        print("Debugging. The deletion will trigger.")
+        print(dates)
         dates.remove(frequency)
+        print("it triggered")
+        print(dates)
         changed["dates"] = True
 
     # Remove all tasks of the given frequency from elsewhere
@@ -833,8 +837,7 @@ def _wake_up_sleepers(end_date):
         status_copy.until = frequency_copy.until = None
 
         due.append_node(status_copy, config["ordering_key"])
-        changed["asleep"] = changed["due"] = True
-        _update_dltl(frequency_copy.frequency, temp)
+        _update_dltl(frequency_copy.frequency, temp)        # we update asleep and due in the caller
 
 
 def _get_season(date_object):
@@ -940,7 +943,7 @@ def refresh_to_do(namespace):
     # The following always triggers
     finished_today = dltl.DLTLGroup()       # Empties it
     _refresh_frequency("daily")
-    asleep.wake_up_sleepers(today, due, config["ordering_key"])
+    _wake_up_sleepers(today)
     config["last_refresh"] = today
     changed["due"] = changed["overdue"] = changed["asleep"] = changed["finished"] = changed["config"] = True
     # That might not be the case for all, but it doesn't matter, and it is neater this way
