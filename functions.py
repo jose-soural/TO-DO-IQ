@@ -466,7 +466,10 @@ def change_frequency(namespace):
     # Then the status copy
     if status_copy is not None:
         temp = statuses[status_copy.status]
-        temp.change_frequency(status_copy, new_frequency, config["ordering_key"])
+        if status_copy.status == "asleep":
+            status_copy.frequency = new_frequency
+        else:
+            temp.change_frequency(status_copy, new_frequency, config["ordering_key"])
         changed[status_copy.status] = True
 
     print()
