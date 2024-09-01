@@ -122,7 +122,7 @@ p_disp_all.set_defaults(func=display_all)
 
 p_disp_list = commands.add_parser("display_list", aliases=["dl", "display", "disp"], help="Displays all tasks (their names) of the specified frequency and status.")
 p_disp_list.add_argument("frequency", default="once", help="The frequency of the tasks to be displayed. Can be any frequency from the list_frequencies command, or 'all'.")
-p_disp_list.add_argument("status", type=casefold, choices=["due", "overdue", "asleep", "finished_today", "all"], default="due", help="The status of the tasks to be displayed.")
+p_disp_list.add_argument("status", type=casefold, choices=["due", "overdue", "asleep", "finished", "finished_today", "all"], default="due", help="The status of the tasks to be displayed.")
 p_disp_list.set_defaults(func=display_list_argparse)
 
 p_disp_due = commands.add_parser("due", help="Displays all due tasks except tasks that are overdue.")
