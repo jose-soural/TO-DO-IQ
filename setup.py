@@ -8,4 +8,5 @@ if (response := input("Do you wish to clear all settings and tasks, starting fre
 else:
     print("User did not confirm. Aborting process.")
     print()
+
 sys.exit(42)

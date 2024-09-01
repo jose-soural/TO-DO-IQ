@@ -157,10 +157,10 @@ def main():
             print("Type in a valid command to continue. Type --help for help.")
             user_input = input().strip()
             print()
-            #print(f"Raw input: {user_input}")  # Debug print
+            # print(f"Raw input: {user_input}")  # Debug print
             namespace = entry_parser.parse_args(user_input.split())
             print()
-            #print(f"Parsed arguments: {namespace}")  # Debug print
+            # print(f"Parsed arguments: {namespace}")  # Debug print
             print()
             namespace.func(namespace)
             continue
@@ -181,7 +181,7 @@ def main():
             elif e.code == 42:  # Built in exit procedure
                 print("Graceful shutdown successful. Until next time!")
                 break
-            else:  # Something went horribly wrong
+            else:  # Something went horribly wrong.
                 raise
         except (KeyboardInterrupt, EOFError):
             catch_close_command()
