@@ -74,11 +74,7 @@ def _delete_file(frequency):
 
     # If it was a date, remove it from the list of used dates
     if isinstance(frequency, date):
-        print("Debugging. The deletion will trigger.")
-        print(dates)
         dates.remove(frequency)
-        print("it triggered")
-        print(dates)
         changed["dates"] = True
 
     # Remove all tasks of the given frequency from elsewhere
