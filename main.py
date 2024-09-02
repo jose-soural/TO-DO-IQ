@@ -101,8 +101,8 @@ p_set_due.add_argument("target_task", nargs="+", help="The task to be put to ren
 p_set_due.set_defaults(func=renew)
 
 p_set_overdue = commands.add_parser("mark_as_overdue", aliases=["mao", "mo", "set_overdue", "so"], help="Sets a task's status to 'overdue', marking its completion as high priority.")
-p_set_due.add_argument("target_task", nargs="+", help="The task to be put to made overdue. Can be its name or its index as listed in the last displayed list.")
-p_set_due.set_defaults(func=mark_as_overdue)
+p_set_overdue.add_argument("target_task", nargs="+", help="The task to be put to made overdue. Can be its name or its index as listed in the last displayed list.")
+p_set_overdue.set_defaults(func=mark_as_overdue)
 
 p_set_fin = commands.add_parser("finish", aliases=["fin", "make_finished", "mf"], help="Sets a task's status to 'finished', marking its completion and taking it off the agenda. NOTE: finishing a 'once' task will automatically remove it")
 p_set_fin.add_argument("target_task", nargs="+", help="The task to be put to made overdue. Can be its name or its index as listed in the last displayed list.")
@@ -151,15 +151,16 @@ p_config.set_defaults(func=change_config)
 
 def main():
     print("Welcome to TO-DO-IQ!")
+    print()
     while True:
         try:
             print("Type in a valid command to continue. Type --help for help.")
             user_input = input().strip()
             print()
-            print(f"Raw input: {user_input}")  # Debug print
+            #print(f"Raw input: {user_input}")  # Debug print
             namespace = entry_parser.parse_args(user_input.split())
             print()
-            print(f"Parsed arguments: {namespace}")  # Debug print
+            #print(f"Parsed arguments: {namespace}")  # Debug print
             print()
             namespace.func(namespace)
             continue
@@ -170,8 +171,9 @@ def main():
                 print()
                 continue
             if e.code == 2:
-                print("")
-                print("Exception was caught and handled.")
+                print()
+                print()
+                print("Exception was caught and handled. Continuing program execution.")
                 print()
                 continue  # Argparse berated the user, we can continue
             elif e.code == 0:  # The user wants to exit via the python built-in commands

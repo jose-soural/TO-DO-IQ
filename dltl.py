@@ -250,13 +250,13 @@ class SleeperDLTL(DLTL):
         self._remove_node_from_glossary(waker)
         return waker
 
-    def wake_up_sleepers(self, end_date, target):
+    def wake_up_sleepers(self, end_date, target, ordering_key):
         """Wakes up all sleepers whose wake-up ('until') date is before the end_date (included)
         and appends them to the target DLTL/DLTLGroup."""
         while self.head is not None and self.head.until <= end_date:
             if self.head.name in target.glossary:
                 self.head.name = f'{self.head.name} -- name collision prevention triggered {str(datetime.now())}'
-            target.append_node(self.wake_up_head())
+            target.append_node(self.wake_up_head(), ordering_key)
         if self.head is None:   # The list emptied completely
             self.tail = None
 

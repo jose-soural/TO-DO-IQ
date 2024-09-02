@@ -4,7 +4,6 @@ from os import path, remove
 from datetime import date, datetime, timedelta
 from bisect import insort
 import dltl     # Custom module
-empty_dltl = dltl.DLTL()
 
 
 def pickle_into_file(contents, file_name):
@@ -37,7 +36,7 @@ ordinary = {1: "once", 2: "daily", 3: "weekly", 4: "monthly", 5: "seasonally", 6
 week = {1: "monday", 2: "tuesday", 3: "wednesday", 4: "thursday", 5: "friday", 6: "saturday", 7: "sunday"}
 months = {1: 'january', 2: 'february', 3: 'march', 4: 'april', 5: 'may', 6: 'june', 7: 'july', 8: 'august',
           9: 'september', 10: 'october', 11: 'november', 12: 'december'}
-seasons = {1: "winter", 2:  "spring", 3: "summer", 4: "fall"}
+seasons = {1: "winter", 2:  "spring", 3: "summer", 0: "fall"}
 # counting = unpickle_file("counting")
 dates = unpickle_file("dates", [])      # An ordered list of dates we are using.
 
@@ -84,13 +83,18 @@ def _delete_file(frequency):
     asleep.detach_all_frequency(frequency)
 
 
-def _push_file(frequency, contents):  # might rewrite later to automatically take contents from in_memory,
+def _push_file(frequency):
     """Not meant for the end user. Pushes the current state of the given task list into the corresponding file."""
-    if contents == empty_dltl:  # Protects from saving an empty task list, but only for normal DLTLs
-        _delete_file(frequency)
+    if in_memory[frequency].size == 0:
+        _delete_file(frequency)     # Prevents us saving empty lists and cluttering the folder
     else:
-        pickle_into_file(contents, frequency)
+        pickle_into_file(in_memory[frequency], frequency)
     changed.pop(frequency, None)
+
+
+def _push_special_file(file_name, contents):
+    pickle_into_file(contents, file_name)
+    changed.pop(file_name, None)
 
 
 def _update_dltl(target_name, contents):
@@ -110,12 +114,15 @@ def _convert_to_date(days):
 
 def _set_until_date():
     """Not meant for the end user. Handles the user ascribing a wake-up date to an asleep task."""
+    print()
     print("Putting task to sleep. Please input the date you would like the task to awaken on.")
     print("If you would like to give the number of days instead, type 'days'.")
+    print()
 
-    if (until := input(f'Type the date in the format YYYY-MM-DD')) == "days":
-        if (until := _convert_to_date(input(f'Please type in the number of days, without spaces:'))) is None:
+    if (until := input(f'Type the date in the format YYYY-MM-DD\n')) == "days":
+        if (until := _convert_to_date(input(f'Please type in the number of days, without spaces:\n'))) is None:
             print("Error: Did not receive a positive integer. Please try again from the beginning.")
+            print()
             until = _set_until_date()
 
     else:
@@ -123,6 +130,7 @@ def _set_until_date():
             until = date(int(until[0:4]), int(until[5:7]), int(until[8:10]))
         except (ValueError, TypeError, IndexError):
             print("Error: Did not receive a date in the specified format. Please try again from the beginning.")
+            print()
             until = _set_until_date()
     return until
 
@@ -131,14 +139,17 @@ def save_changes(namespace):        # The namespace is only to prevent "expected
     """Saves all changes and progress made to all tasks as well as programme configurations."""
     for name, status_list in statuses.items():
         if changed.pop(name, None) is not None:
-            _push_file(name, status_list)
+            _push_special_file(name, status_list)
     if changed.pop("config", None) is not None:
-        _push_file("config", config)
-    if changed.pop("dates", None) is not None:
-        _push_file("dates", dates)
+        _push_special_file("config", config)
+    hold = changed.pop("dates", None)           # In order for the empty date dltls to get removed properly (1/2)
 
     for frequency in list(changed.keys()):      # The list is there since we are changed the dict while iterating
-        _push_file(frequency, in_memory[frequency])
+        _push_file(frequency)
+
+    if changed.pop("dates", None) is not None or hold is not None:
+        _push_special_file("dates", dates)  # and also not meltdown, we have to do it weirdly like this (2/2)
+
     print("Changes successfully saved!")
     print()
 
@@ -159,7 +170,7 @@ def catch_close_command():
     to initiate proper exit procedure."""
     print("Caught attempt to exit application.")
     print("Warning: The used method is not the proper way to close TO-DO-IQ. Unsaved data WILL be lost."
-          "Do you wish to save data before exiting? (Y/N)")
+          "Do you wish to save data before exiting? (Y/N)\n")
     while True:
         if (response := input().casefold()) == "y":
             save_changes("y")
@@ -170,11 +181,13 @@ def catch_close_command():
             sys.exit(0)
         else:
             print("Did not understand answer. Please try again.")
+            print()
             continue
 
 
 def list_valid_frequencies(namespace):
     """Displays a list of all valid task frequencies (= trigger conditions)."""
+    print()
     print("Any date in the format 'MM-DD' (M = month, D = day). -- The task will trigger once every year on that date.")
     print()
     print("We also support the following 'once every ____' frequencies:")
@@ -205,12 +218,14 @@ def _validify_frequency(frequency):
     if len(frequency) != 5:
         print("Error: The inputted frequency could not be matched to a frequency supported by the program, and was"
               "too long/short to be a date. Aborting process.")
+        print()
         return None
     try:
         frequency = date(2020, int(frequency[0:2]), int(frequency[3:5]))    # 2020 is a placeholder (leap year)
     except (TypeError, ValueError) as e:
         print(f'Error: The inputted frequency could not be matched to a frequency supported by the program, and '
               f'could not be confirmed as a date -- reason: {e}. Aborting process.')
+        print()
         return None
     return frequency
 
@@ -223,19 +238,23 @@ def create_task(name, frequency="once", task_description="", status="due"):
     if frequency is None:
         return None
     elif frequency == "all":
-        print("Error: Cannot create a task with frequency 'all'.")
+        print("Error: Cannot create a task with frequency 'all'. Aborting process.")
+        print()
         return None
 
     # Checks other validity concerns
     if frequency == "once" and status == "finished":
         print("Error: Cannot create a 'once' task that is already 'finished'. Task was NOT created.")
+        print()
         return None
     temp = _pull_file(frequency)
     if name in temp.glossary:
         print(f'Error: Task with name {name} and frequency {frequency} already exists. Task was NOT created.')
+        print()
         return None
     if name in statuses[status].glossary:
         print(f'Error: Task with name {name} and status {status} already exists. Task was NOT created.')
+        print()
         return None
 
     # Adds the task to the appropriate DLTLGroup
@@ -270,7 +289,8 @@ def create_task_argparse(namespace):
 def _fetch_position_from_ld(position: int):
     """Not meant for the end user. Fetches a task node by its position in the last_displayed list."""
     if position < 1 or position > len(last_displayed):
-        print("Error: Invalid position.")
+        print("Error: Invalid position. Aborting process.")
+        print()
         return None
     return last_displayed[position-1]
 
@@ -299,7 +319,7 @@ def _fetch_from_ld(task):
         print()
         return None
     if ld_origin == "unsupported":
-        print("Error: The last displayed list is too broad and as such does not allow interaction with tasks. Please"
+        print("Error: The last displayed list is too broad and as such does not allow interaction with tasks. Please "
               "display a more specialized list to access specific tasks.")
         print()
         return None
@@ -344,6 +364,10 @@ def delete_task(namespace):
         temp.detach_node(status_copy)
         changed[status_copy.status] = True
 
+    print()
+    print("Task successfully deleted.")
+    print()
+
 
 def change_name(namespace):
     """Changes the name of the specified task."""
@@ -357,6 +381,7 @@ def change_name(namespace):
     if new_name in freq.glossary:
         print(f'Error: Task with name {new_name} and frequency {frequency_copy.frequency}'
               f'already exists. Name change was aborted.')
+        print()
         return False
     freq.rename_node(frequency_copy, new_name)
     _update_dltl(frequency_copy.frequency, freq)
@@ -367,15 +392,23 @@ def change_name(namespace):
         temp.rename_node(status_copy, new_name)
         changed[status_copy.status] = True
 
+    print()
+    print("Task successfully renamed.")
+    print()
+
 
 def _change_freq_ask_user():
     if (response := input("Warning: Changing the frequency of a 'finished' task to 'once' will remove the task."
-                          "Do you wish to proceed? (Y/N):").casefold()) == "y":
+                          "Do you wish to proceed? (Y/N):\n").casefold()) == "y":
         return True
     elif response == "n":
+        print()
+        print("Understood. Aborting process.")
+        print()
         return False
     else:
         print("Did not understand answer. Please try again.")
+        print()
         return _change_freq_ask_user()
 
 
@@ -388,6 +421,7 @@ def change_frequency(namespace):
         return None
     elif new_frequency == "all":
         print("Error: Cannot create a task with frequency 'all'.")
+        print()
         return None
 
     status_copy, frequency_copy = _fetch_both_copies(namespace.target_task)
@@ -397,6 +431,7 @@ def change_frequency(namespace):
 
     if new_frequency == old_frequency:
         print("Error: The given task already has said frequency. Process aborted.")
+        print()
         return None
 
     if new_frequency == "once" and frequency_copy.status == "finished":
@@ -412,6 +447,7 @@ def change_frequency(namespace):
         print(
             f'Error: Task with name {name} and frequency {new_frequency} already exists.'
             f'Frequency change was aborted.')
+        print()
         return False
 
     freq1 = _pull_file(old_frequency)
@@ -426,6 +462,10 @@ def change_frequency(namespace):
         temp = statuses[status_copy.status]
         temp.change_frequency(status_copy, new_frequency, config["ordering_key"])
         changed[status_copy.status] = True
+
+    print()
+    print("Task frequency change successful.")
+    print()
 
 
 def change_description(namespace):
@@ -446,6 +486,10 @@ def change_description(namespace):
         temp.change_description(status_copy, new_description)
         changed[status_copy.status] = True
 
+    print()
+    print("Task description change successful.")
+    print()
+
 
 def _change_status(task, new_status):
     """not for user -- umbrella function -- but not for asleep"""
@@ -456,11 +500,13 @@ def _change_status(task, new_status):
     name, old_status = frequency_copy.name, frequency_copy.status
     if old_status == new_status:
         print(f'Error: The given task is already {new_status}. Aborting process.')
+        print()
         return False
     if name in statuses[new_status].glossary:
         print(
             f'Error: Task with name {name} and status {new_status} already exists.'
             f'Aborting process.')
+        print()
         return False
 
     # First the frequency copy
@@ -478,6 +524,10 @@ def _change_status(task, new_status):
     statuses[new_status].append_node(status_copy, config["ordering_key"])
     changed[new_status] = True
 
+    print()
+    print("Task status change successful.")
+    print()
+
 
 def set_asleep(namespace):
     """Sets the task to 'sleep' making become due on a specific day.
@@ -490,6 +540,7 @@ def set_asleep(namespace):
         print(
             f'Error: Task with name {frequency_copy.name} and status "asleep" already exists.'
             f'Aborting process.')
+        print()
         return False
 
     status_copy.until = frequency_copy.until = _set_until_date()
@@ -506,6 +557,10 @@ def set_asleep(namespace):
         changed[status_copy.status] = True
     asleep.add_sleeper(status_copy)
     changed["asleep"] = True
+
+    print()
+    print("Task was successfully set asleep.")
+    print()
 
 
 def renew(namespace):
@@ -526,6 +581,9 @@ def finish(namespace):
         return None
     if node.frequency == "once":
         delete_task(namespace)
+        print()
+        print("A once task was finished. Keep up the good work!")
+        print()
     else:
         _change_status(namespace.target_task, "finished")
 
@@ -545,6 +603,7 @@ def description(namespace):
     print(f'Task {task.name} description:')
     print()
     print(_prepare_description(task.description))
+    print()
 
 
 def detail(namespace):
@@ -553,21 +612,27 @@ def detail(namespace):
     if task is None:
         return None
 
+    print()
     print("Task name:", task.name, "", "Task frequency:", task.frequency, "",
           "Task description:", _prepare_description(task.description), "", "Task status:", task.status, "",
           "Task wake-up date:", task.until, sep="\n")
+    print()
+    print()
 
 
 def _display_all_warning():
-    print("You are about to tasks from all lists currently logged by the program."
-          "Please note that this may be demanding on your device AND that this display is view only, meaning"
+    print("You are about to tasks from all lists currently logged by the program. "
+          "Please note that this may be demanding on your device AND that this display is view only, meaning "
           "you will NOT be able to access or edit task details.")
-    if (response := input("Do you wish to proceed? (Y/N)").casefold()) == "y":
+    if (response := input("Do you wish to proceed? (Y/N)\n").casefold()) == "y":
         return True
     elif response == "n":
+        print("Understood. Aborting process.")
+        print()
         return False
     else:
         print("Did not understand response. Please try again.")
+        print()
         return _display_all_warning()
 
 
@@ -612,14 +677,17 @@ def display_all(namespace):
         print()
         i = _pull_file(frequency).display_alongside_others(finished, i)
 
-        if i == 1:
-            if finished:
-                print("You have no finished tasks.")
-            else:
-                print("You have no tasks. Consider making some!")
+    print()
+    print()
+    if i == 1:
+        if finished:
+            print("You have no finished tasks.")
         else:
-            print()
-            print("And that is all.")
+            print("You have no tasks. Consider making some!")
+    else:
+        print("And that is all.")
+    print()
+    print()
 
 
 def display_list(frequency, status):
@@ -669,12 +737,17 @@ def display_list(frequency, status):
         last_displayed = target.display_task_names([None] * target.size)
         ld_origin = status
 
+    print()
+    print("And that is all.")
+    print()
+
 
 def to_do(namespace):
     """Displays all tasks on today's agenda."""
 
     if (size := (overdue.size + due.size)) == 0:
         print("You have finished all your tasks. Congratulations!")
+        print()
         return
     global last_displayed, ld_origin
     last_displayed = [None] * size
@@ -701,6 +774,8 @@ def to_do(namespace):
         last_displayed, initial_index = target.display_task_names(last_displayed, initial_index)
         print()
     print("And that is all.")
+    print()
+    print()
 
 
 def display_list_argparse(namespace):
@@ -767,6 +842,7 @@ def refresh_to_do(namespace):
     today = date.today()
     if config["last_refresh"] == today:
         print("Tasks were already refreshed today.")
+        print()
         return
 
     global finished_today
@@ -843,20 +919,24 @@ def refresh_to_do(namespace):
     # The following always triggers
     finished_today = dltl.DLTLGroup()       # Empties it
     _refresh_frequency("daily")
-    asleep.wake_up_sleepers(today, due)
+    asleep.wake_up_sleepers(today, due, config["ordering_key"])
     config["last_refresh"] = today
     changed["due"] = changed["overdue"] = changed["asleep"] = changed["finished"] = changed["config"] = True
     # That might not be the case for all, but it doesn't matter, and it is neater this way
 
     print("Tasks successfully refreshed.")
+    print()
 
 
 def change_config(namespace):
     if namespace.auto_refresh == "true":
         config["auto_refresh"] = True
+        print("Auto-refresh enabled.")
     else:
         config["auto_refresh"] = False
+        print("Auto-refresh disabled.")
     changed["config"] = True
+    print()
 
 
 def _start_anew():
@@ -885,3 +965,7 @@ def _start_anew():
         remove('config.pkl')
     print("Initialization successful. Boot up 'main.py' to begin.")
     exit_without_saving("yay")
+
+
+if config["auto_refresh"]:
+    refresh_to_do("on_startup")
