@@ -520,7 +520,7 @@ def _change_status(task, new_status):
         temp = statuses[old_status]
         temp.detach_node(status_copy)
         changed[old_status] = True
-    status_copy.until = None
+    status_copy = dltl.TaskNode(name, frequency_copy.frequency, frequency_copy.description, new_status)
     statuses[new_status].append_node(status_copy, config["ordering_key"])
     changed[new_status] = True
 
@@ -543,7 +543,7 @@ def set_asleep(namespace):
         print()
         return False
 
-    status_copy.until = frequency_copy.until = _set_until_date()
+    frequency_copy.until = _set_until_date()
 
     # First the frequency copy
     freq = _pull_file(frequency_copy.frequency)
@@ -555,6 +555,7 @@ def set_asleep(namespace):
         temp = statuses[status_copy.status]
         temp.detach_node(status_copy)
         changed[status_copy.status] = True
+    status_copy = dltl.TaskNode(frequency_copy.name, frequency_copy.frequency, frequency_copy.description, "asleep", frequency_copy.until)
     asleep.add_sleeper(status_copy)
     changed["asleep"] = True
 
