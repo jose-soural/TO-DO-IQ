@@ -817,6 +817,26 @@ def _refresh_frequency(frequency):
     # changed["due"] = changed["overdue"] = True -- We do this at the refresh to_do level, otherwise we would do it here
 
 
+def _wake_up_sleepers(end_date):
+    """Wakes up all sleepers whose wake-up ('until') date is before the end_date (included)
+    and appends them to due."""
+    while asleep.head is not None and asleep.head.until <= end_date:
+        status_copy = asleep.wake_up_head()
+        temp = _pull_file(status_copy.frequency)
+        frequency_copy = temp.fetch_node(status_copy.name)
+
+        # Prevent name collision
+        if status_copy.name in due.glossary:
+            status_copy.name = frequency_copy.name = f'{status_copy.name} -- name collision prevention triggered {datetime.now()}'
+
+        status_copy.status = frequency_copy.status = "due"
+        status_copy.until = frequency_copy.until = None
+
+        due.append_node(status_copy, config["ordering_key"])
+        changed["asleep"] = changed["due"] = True
+        _update_dltl(frequency_copy.frequency, temp)
+
+
 def _get_season(date_object):
     """Returns the season of the given date."""
 

@@ -236,29 +236,20 @@ class SleeperDLTL(DLTL):
         self._add_node_to_glossary(node)
 
     def wake_up_head(self):
-        """Wakes up the head of the DLTL (removes the node, sets status to 'due' and passes it to the caller)."""
+        """Wakes up the head of the DLTL (removes the node and passes it to the caller)."""
         waker = self.head
         if waker is None:
             return None     # This should never trigger
         self.head = self.head.next
         if self.head is not None:
             self.head.prev = None
+        else:
+            self.tail = None    # List emptied out completely
         waker.next = None
 
-        waker.status = "due"
         waker.until = None
         self._remove_node_from_glossary(waker)
         return waker
-
-    def wake_up_sleepers(self, end_date, target, ordering_key):
-        """Wakes up all sleepers whose wake-up ('until') date is before the end_date (included)
-        and appends them to the target DLTL/DLTLGroup."""
-        while self.head is not None and self.head.until <= end_date:
-            if self.head.name in target.glossary:
-                self.head.name = f'{self.head.name} -- name collision prevention triggered {str(datetime.now())}'
-            target.append_node(self.wake_up_head(), ordering_key)
-        if self.head is None:   # The list emptied completely
-            self.tail = None
 
     def detach_all_frequency(self, frequency):
         """Removes all tasks of the given frequency from the SleeperDLTL."""
